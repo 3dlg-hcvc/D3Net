@@ -1,11 +1,11 @@
-ROOT_PATH: /rhome/dchen/D3NetRelease #TODO
-CLUSTER_PATH: /cluster/balrog/dchen/pointgroup-minkowski #TODO -> change the related path if you're not on cluster
-DATA_PATH: ${CLUSTER_PATH}/data
+ROOT_PATH: /localhome/yza440/Research/D3Net #TODO
+CLUSTER_PATH: #TODO -> change the related path if you're not on cluster
+DATA_PATH: ${ROOT_PATH}/data
 OUTPUT_PATH: ${ROOT_PATH}/outputs
 
 SCANNETV2_PATH:
-  raw_scans: /canis/Datasets/ScanNet/public/v2/scans
-  extracted_scans: /local-scratch/qiruiw/dataset/scannet/scans
+  raw_scans: /datasets/released/scannet/public/v2/scans
+  extracted_scans: #/local-scratch/qiruiw/dataset/scannet/scans
 
   dir: ${DATA_PATH}/scannet
   split_scans: /local-scratch/qiruiw/dataset/scannet/split_scans 
