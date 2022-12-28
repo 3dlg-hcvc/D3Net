@@ -6,10 +6,8 @@ import os
 import sys
 import json
 import torch
-import pickle
 import argparse
 
-import numpy as np
 
 from copy import deepcopy
 from omegaconf import OmegaConf
@@ -20,12 +18,10 @@ from torch.utils.data.dataloader import DataLoader
 
 sys.path.append(".")
 
-from data.scannet.model_util_scannet import ScannetDatasetConfig
+from data.scannet.model_util_scannet_d3net import ScannetDatasetConfig
 
-from lib.det.ap_helper import APCalculator, parse_predictions, parse_groundtruths
-from lib.grounding.loss_helper import get_loss
-from lib.grounding.eval_helper import get_eval
-from lib.captioning.eval_helper import eval_caption_step, eval_caption_epoch, decode_caption
+from lib.det.ap_helper import parse_predictions
+from lib.captioning.eval_helper import decode_caption
 
 
 def load_conf(args):

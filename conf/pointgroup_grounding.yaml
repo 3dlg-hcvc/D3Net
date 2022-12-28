@@ -99,7 +99,7 @@ model:
   pretrained_module: []
   pretrained_module_path:
 
-  pretrained_detector: detector.pth
+  pretrained_detector: pointgroup.pth
   pretrained_speaker: 
   pretrained_listener: 
 
@@ -110,7 +110,7 @@ model:
 
 train:
   epochs: 50
-  num_sanity_val_steps: -1
+  num_sanity_val_steps: 5
   log_every_n_steps: 10
   check_val_every_n_epoch: 1
 
@@ -175,7 +175,7 @@ test:
 
 
 evaluation:
-  model_utils_module: data.scannet.model_util_scannet
+  model_utils_module: data.scannet.model_util_scannet_d3net
   gt_class_name: NYU20_CLASS_NAME
   gt_class_idx: NYU20_CLASS_IDX
 

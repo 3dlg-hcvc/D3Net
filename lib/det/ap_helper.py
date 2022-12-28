@@ -6,13 +6,12 @@ Modified from: https://github.com/facebookresearch/votenet/blob/master/models/ap
 import os
 import sys
 import numpy as np
-import torch
 
 sys.path.append(os.path.join(os.getcwd(), "lib")) # HACK add the lib folder
 from lib.det.eval_det import eval_det, get_iou_obb
 from lib.det.nms import nms_2d_faster, nms_3d_faster, nms_3d_faster_samecls
 
-from data.scannet.model_util_scannet import extract_pc_in_box3d
+from data.scannet.model_util_scannet_d3net import extract_pc_in_box3d
 
 def softmax(x):
     ''' Numpy function for softmax'''

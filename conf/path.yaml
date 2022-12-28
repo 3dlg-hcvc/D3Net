@@ -5,10 +5,8 @@ OUTPUT_PATH: ${ROOT_PATH}/outputs
 
 SCANNETV2_PATH:
   raw_scans: /datasets/released/scannet/public/v2/scans
-  extracted_scans: #/local-scratch/qiruiw/dataset/scannet/scans
 
   dir: ${DATA_PATH}/scannet
-  split_scans: /local-scratch/qiruiw/dataset/scannet/split_scans 
   split_data: ${SCANNETV2_PATH.dir}/split_data #TODO
   split_gt: ${SCANNETV2_PATH.dir}/split_gt
   meta_data: ${SCANNETV2_PATH.dir}/meta_data
@@ -23,11 +21,11 @@ SCANNETV2_PATH:
 
   enet_weights: ${DATA_PATH}/scannetv2_enet.pth
   enet_features: ${DATA_PATH}/enet_features
-  multiview_features: ${DATA_PATH}/enet_feats_maxpool.hdf5
+  multiview_features: /project/3dlg-hcvc/scanrefer++/d3net/data/enet_feats_maxpool.hdf5
 
   gt_features: ${DATA_PATH}/VoteNet_GT_features_200 # TODO -> prepare this
 
-SCAN2CAD: ${DATA_PATH}/Scan2CAD_dataset/scannet_instance_rotations.json
+SCAN2CAD: ${DATA_PATH}/Scan2CAD_dataset
 
 SCANREFER_PATH:
   glove_pickle: ${DATA_PATH}/glove.p

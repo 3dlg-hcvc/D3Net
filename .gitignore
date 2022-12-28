@@ -6,3 +6,7 @@ data/scanrefer/*
 data/glove.p
 data/glove_trimmed_ScanRefer.npy
 .idea
+
+# pointgroup ops
+lib/pointgroup_ops/PG_OP*
+lib/pointgroup_ops/build

@@ -12,7 +12,6 @@ import trimesh
 import numpy as np
 
 from typing import List
-from scipy.spatial import ConvexHull
 from lib.utils.pc import write_ply_rgb_face
 from lib.utils.transform import roty, roty_batch, rotz
 

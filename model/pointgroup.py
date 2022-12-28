@@ -1,22 +1,18 @@
 import os
-import re
 import torch
 import functools
-import random
-
 import numpy as np
 import torch.nn as nn
 import MinkowskiEngine as ME
 import pytorch_lightning as pl
 
 from tqdm import tqdm
-from glob import glob
-from importlib import import_module
 
-from data.scannet.model_util_scannet import ScannetDatasetConfig
+
+from data.scannet.model_util_scannet_d3net import ScannetDatasetConfig
 from lib.pointgroup_ops.functions import pointgroup_ops
 from lib.utils.eval import get_nms_instances
-from lib.utils.bbox import get_3d_box_batch, get_aabb3d_iou_batch, get_3d_box
+from lib.utils.bbox import get_3d_box_batch
 from lib.utils.nn_distance import nn_distance
 
 from model.common import ResidualBlock, VGGBlock, UBlock
@@ -541,7 +537,7 @@ class PointGroup(pl.LightningModule):
 
     ######### NOTE DANGER ZONE!!!
     def test(self, split="val"):
-        from data.scannet.model_util_scannet import NYU20_CLASS_IDX
+        from data.scannet.model_util_scannet_d3net import NYU20_CLASS_IDX
         NYU20_CLASS_IDX = NYU20_CLASS_IDX[1:] # for scannet temporarily
         self.mode = "test"
         self.current_epoch = self.start_epoch

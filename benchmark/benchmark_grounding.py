@@ -5,24 +5,14 @@ warnings.filterwarnings("ignore")
 import os
 import json
 import torch
-import pickle
 import argparse
 
-import numpy as np
-
-from copy import deepcopy
 from omegaconf import OmegaConf
 from importlib import import_module
 from tqdm import tqdm
 
 from torch.utils.data.dataloader import DataLoader
 
-from data.scannet.model_util_scannet import ScannetDatasetConfig
-
-from lib.det.ap_helper import APCalculator, parse_predictions, parse_groundtruths
-from lib.grounding.loss_helper import get_loss
-from lib.grounding.eval_helper import get_eval
-from lib.captioning.eval_helper import eval_caption_step, eval_caption_epoch
 
 def load_conf(args):
     base_cfg = OmegaConf.load("conf/path.yaml")

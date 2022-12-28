@@ -18,13 +18,15 @@ from torch.utils.data import Dataset
 from MinkowskiEngine.utils import batched_coordinates
 
 sys.path.append("../")  # HACK add the lib folder
-from data.scannet.model_util_scannet import ScannetDatasetConfig, rotate_aligned_boxes_along_axis
+from data.scannet.model_util_scannet_d3net import ScannetDatasetConfig, rotate_aligned_boxes_along_axis
 from lib.pointgroup_ops.functions import pointgroup_ops
 from lib.utils.pc import crop
 from lib.utils.transform import jitter, flip, rotz, elastic
 from lib.utils.bbox import get_3d_box, get_3d_box_batch
 
 MEAN_COLOR_RGB = np.array([109.8, 97.2, 83.8])
+SCANREFER_PLUS_PLUS = True
+
 
 class PipelineDataset(Dataset):
 
@@ -75,7 +77,7 @@ class PipelineDataset(Dataset):
         annotated_list = np.zeros((self.chunk_size))
         unique_multiple_list = np.zeros((self.chunk_size))
         object_cat_list = np.zeros((self.chunk_size))
-
+        object_ids_list = []
         actual_chunk_size = len(self.chunked_data[idx])
 
         # prepare scene data
@@ -92,6 +94,8 @@ class PipelineDataset(Dataset):
                 if i < actual_chunk_size:
                     chunk_id = i
                     object_id = self.chunked_data[idx][i]["object_id"]
+                    if SCANREFER_PLUS_PLUS:
+                        object_ids = self.chunked_data[idx][i]["object_ids"]
                     if object_id != "SYNTHETIC":
                         annotated = 1
                         object_id = int(object_id)
@@ -129,6 +133,7 @@ class PipelineDataset(Dataset):
                 # is smaller than num_des_per_scene
                 chunk_id_list[i] = chunk_id
                 object_id_list[i] = object_id
+                object_ids_list.append(object_ids)
                 ann_id_list[i] = ann_id
                 lang_feat_list[i] = lang_feat
                 lang_len_list[i] = lang_len
@@ -264,18 +269,20 @@ class PipelineDataset(Dataset):
                             pass
 
             # construct the reference target label for each bbox
+            multi_ref_box_label_list = np.zeros((self.chunk_size, self.cfg.data.max_num_instance), dtype=bool)
             ref_box_label_list = np.zeros((self.chunk_size, self.cfg.data.max_num_instance))
             ref_box_corner_label_list = np.zeros((self.chunk_size, 8, 3)) # NOTE the grounding GT should be decoded
             for j in range(self.chunk_size):
-                ref_box_label = np.zeros(self.cfg.data.max_num_instance)
                 for i, gt_id in enumerate(instance_bbox_ids):
                     if bbox_label[i] == 1 and gt_id == object_id_list[j]:
-                        ref_box_label[i] = 1
+                        ref_box_label_list[j][i] = 1
                         ref_box_corner_label = get_3d_box(instance_bboxes[i, 0:3], instance_bboxes[i, 3:6]).astype(np.float32)
 
                         # store
-                        ref_box_label_list[j] = ref_box_label
                         ref_box_corner_label_list[j] = ref_box_corner_label
+
+                    if bbox_label[i] == 1 and gt_id in object_ids_list[j]:
+                        multi_ref_box_label_list[j][i] = True
 
 
             # basic info
@@ -316,6 +323,8 @@ class PipelineDataset(Dataset):
             # grounding GT
             data["ref_box_label"] = np.array(ref_box_label_list).astype(np.int64) # 0/1 reference labels for each object bbox
             data["ref_box_corner_label"] = np.array(ref_box_corner_label_list).astype(np.float32)
+
+            data["multi_ref_box_label_list"] = multi_ref_box_label_list
 
         else:
             for i in range(self.chunk_size):
@@ -448,13 +457,13 @@ class PipelineDataset(Dataset):
         else:
             if self.split == "train":
                 print("building vocabulary...")
-                glove = pickle.load(self.cfg["{}_PATH".format(self.name.upper())].glove_pickle)
+                with open(self.cfg["{}_PATH".format(self.name.upper())].glove_pickle, "rb") as f:
+                    glove = pickle.load(f)
                 train_data = [d for d in self.raw_data if d["object_id"] != "SYNTHETIC"]
                 all_words = chain(*[data["token"][:self.max_des_len] for data in train_data])
                 word_counter = Counter(all_words)
                 word_counter = sorted([(k, v) for k, v in word_counter.items() if k in glove], key=lambda x: x[1], reverse=True)
                 word_list = [k for k, _ in word_counter]
-
                 # build vocabulary
                 word2idx, idx2word = {}, {}
                 spw = ["pad_", "unk", "sos", "eos"] # NOTE distinguish padding token "pad_" and the actual word "pad"

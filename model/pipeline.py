@@ -1,25 +1,17 @@
-from copy import deepcopy
-import os
-import sys
+
 import torch
 import random
-
 import numpy as np
-import torch.nn as nn
-import torch.optim as optim
 import pytorch_lightning as pl
-
-from data.scannet.model_util_scannet import ScannetDatasetConfig
-
+from data.scannet.model_util_scannet_d3net import ScannetDatasetConfig
 from model.pointgroup import PointGroup
 from model.speaker import SpeakerNet
 from model.listener import ListenerNet
 
-from lib.det.ap_helper import APCalculator, parse_predictions, parse_groundtruths
+from lib.det.ap_helper import APCalculator
 from lib.captioning.loss_helper import get_loss as get_captioning_loss
 from lib.captioning.eval_helper import eval_caption_step, eval_caption_epoch
 from lib.grounding.loss_helper import get_loss as get_grounding_loss
-from lib.grounding.eval_helper import get_eval as get_grounding_eval
 
 
 class PipelineNet(pl.LightningModule):

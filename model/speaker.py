@@ -1,9 +1,8 @@
 
-import torch
+
 
 import torch.nn as nn
 
-from data.scannet.model_util_scannet import ScannetDatasetConfig
 
 from model.graph_module import GraphModule
 from model.caption_module import TopDownSceneCaptionModule

@@ -174,7 +174,7 @@ test:
 
 
 evaluation:
-  model_utils_module: data.scannet.model_util_scannet
+  model_utils_module: data.scannet.model_util_scannet_d3net
   gt_class_name: NYU20_CLASS_NAME
   gt_class_idx: NYU20_CLASS_IDX
 

@@ -6,11 +6,10 @@ import torch
 import torch.nn as nn
 import MinkowskiEngine as ME
 
-from data.scannet.model_util_scannet import ScannetDatasetConfig
+from data.scannet.model_util_scannet_d3net import ScannetDatasetConfig
 from lib.solver.base_solver import BaseSolver
 from lib.pointgroup_ops.functions import pointgroup_ops
 from lib.utils.log import Meters
-from lib.utils.solver import step_learning_rate
 from lib.utils.eval import get_nms_instances
 from lib.utils.bbox import get_3d_box_batch, get_aabb3d_iou_batch, get_3d_box
 
@@ -352,7 +351,7 @@ class PointGroupSolver(BaseSolver):
                 
     
     def test(self, split):
-        from data.scannet.model_util_scannet import NYU20_CLASS_IDX
+        from data.scannet.model_util_scannet_d3net import NYU20_CLASS_IDX
         NYU20_CLASS_IDX = NYU20_CLASS_IDX[1:] # for scannet temporarily
         self.mode = 'test'
         self.curr_epoch = self.start_epoch

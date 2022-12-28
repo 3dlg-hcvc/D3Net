@@ -1,5 +1,4 @@
-import os
-import sys
+
 import torch
 
 import torch.nn as nn
@@ -7,6 +6,10 @@ import numpy as np
 
 from lib.grounding.loss import SoftmaxRankingLoss, ContrastiveLoss
 from lib.utils.bbox import get_aabb3d_iou, get_aabb3d_iou_batch
+
+
+SCANREFER_PLUS_PLUS = True
+SCANREFER_ENHANCE_VANILLE = True
 
 
 def get_grounding_loss(data_dict, grounding=True, use_oracle=False, is_frozen=False, use_rl=False, loss="cross_entropy"):
@@ -142,24 +145,48 @@ def get_grounding_loss(data_dict, grounding=True, use_oracle=False, is_frozen=Fa
             pred_bbox_corners = pred_bbox_corners.unsqueeze(1).repeat(1, chunk_size, 1, 1, 1).reshape(batch_size, num_proposals, 8, 3)
 
             # ground truth bbox
+
             gt_bbox_corners = data_dict["ref_box_corner_label"] # (B, 8, 3)
             gt_bbox_corners = gt_bbox_corners.reshape(batch_size, 8, 3)
+            if SCANREFER_PLUS_PLUS:
+                gt_bboxes_list = data_dict["gt_bbox"]
 
             # compute the iou score for all predictd positive ref
             labels = np.zeros((batch_size, num_proposals))
+            box_masks = data_dict["multi_ref_box_label_list"].reshape(batch_size, num_proposals)
             for i in range(batch_size):
                 # convert the bbox parameters to bbox corners
-                ious = get_aabb3d_iou_batch(
-                    pred_bbox_corners[i].detach().cpu().numpy(), 
-                    gt_bbox_corners[i].unsqueeze(0).repeat(num_proposals, 1, 1).detach().cpu().numpy()
-                )
-                labels[i, ious.argmax()] = 1 # treat the bbox with highest iou score as the gt
+                if not SCANREFER_PLUS_PLUS:
+                    ious = get_aabb3d_iou_batch(
+                        pred_bbox_corners[i].detach().cpu().numpy(),
+                        gt_bbox_corners[i].unsqueeze(0).repeat(num_proposals, 1, 1).detach().cpu().numpy()
+                    )
+                    labels[i, ious.argmax()] = 1 # treat the bbox with highest iou score as the gt
+                else:
+                    single_mask = box_masks[i]
+                    if single_mask.sum() == 0:
+                        continue
+                    gt_bboxes = gt_bboxes_list[i // chunk_size][single_mask]
+                    for gt_box in gt_bboxes:
+                        ious = get_aabb3d_iou_batch(
+                            pred_bbox_corners[i].detach().cpu().numpy(),
+                            gt_box.unsqueeze(0).repeat(num_proposals, 1, 1).detach().cpu().numpy()
+                        )
+                        if SCANREFER_ENHANCE_VANILLE:
+                            filtered_ious_indices = np.where(ious >= 0.25)
+                            if filtered_ious_indices[0].shape[0] == 0:
+                                continue
+                            labels[i, ious.argmax()] = 1
 
             cluster_labels = torch.FloatTensor(labels).type_as(cluster_preds)
 
             # grounding loss
+
             if loss == "cross_entropy":
-                criterion = SoftmaxRankingLoss()
+                if SCANREFER_PLUS_PLUS:
+                    criterion = nn.MultiLabelSoftMarginLoss()
+                else:
+                    criterion = SoftmaxRankingLoss()
                 loss = criterion(cluster_preds, cluster_labels.float().clone())
             elif loss == "contrastive":
                 criterion = ContrastiveLoss()

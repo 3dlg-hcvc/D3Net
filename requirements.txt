@@ -14,4 +14,7 @@ notebook
 jsonlines
 pyrender
 trimesh==3.9.14
-pytorch-lightning 
+pytorch-lightning
+torch-sparse
+torch-scatter
+torch-geometric

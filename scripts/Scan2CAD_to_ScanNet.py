@@ -21,7 +21,7 @@ from tqdm import tqdm
 from omegaconf import OmegaConf
 
 sys.path.append(os.path.join(os.getcwd())) # HACK add the root folder
-from lib.config import CONF
+# from lib.config import CONF
 
 cfg = OmegaConf.load("conf/path.yaml")
 SCAN2CAD = json.load(open(os.path.join(cfg.SCAN2CAD, "full_annotations.json")))
@@ -47,7 +47,7 @@ for scan2cad_data in tqdm(SCAN2CAD):
 print("number of scenes: {}".format(len(parsed.keys())))
 
 # store
-with open(os.path.join(CONF.PATH.SCAN2CAD, "scannet_instance_rotations.json"), "w") as f:
+with open(os.path.join(cfg.SCAN2CAD, "scannet_instance_rotations.json"), "w") as f:
     json.dump(parsed, f, indent=4)
 
 print("done!")
