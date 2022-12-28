@@ -19,7 +19,19 @@ The code is tested on Ubuntu 18.04 LTS with PyTorch 1.9.1 CUDA 11.1 installed. P
 
 Install the necessary packages listed out in `requirements.txt`:
 ```shell
+conda create -n d3net python=3.8
+conda activate d3net
+conda install pytorch==1.10.0 torchvision==0.11.0 cudatoolkit=11.3 -c pytorch -c conda-forge
+conda install pyg -c pyg
+conda install openblas-devel -c anaconda
+conda install -c bioconda google-sparsehash
+export CPATH=$CONDA_PREFIX/include:$CPATH
+export LD_LIBRARY_PATH=$CONDA_PREFIX/lib:$LD_LIBRARY_PATH
+pip install -U git+https://github.com/NVIDIA/MinkowskiEngine -v --no-deps \
+--install-option="--blas_include_dirs=${CONDA_PREFIX}/include" --install-option="--blas=openblas"
 pip install -r requirements.txt
+cd lib/pointgroup_ops
+python setup.py develop
 ```
 
 ### PointGroup-Minkowski
