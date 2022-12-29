@@ -25,7 +25,7 @@ from lib.utils.transform import jitter, flip, rotz, elastic
 from lib.utils.bbox import get_3d_box, get_3d_box_batch
 
 MEAN_COLOR_RGB = np.array([109.8, 97.2, 83.8])
-SCANREFER_PLUS_PLUS = True
+SCANREFER_PLUS_PLUS = False
 
 
 class PipelineDataset(Dataset):
@@ -133,7 +133,8 @@ class PipelineDataset(Dataset):
                 # is smaller than num_des_per_scene
                 chunk_id_list[i] = chunk_id
                 object_id_list[i] = object_id
-                object_ids_list.append(object_ids)
+                if SCANREFER_PLUS_PLUS:
+                    object_ids_list.append(object_ids)
                 ann_id_list[i] = ann_id
                 lang_feat_list[i] = lang_feat
                 lang_len_list[i] = lang_len
@@ -281,8 +282,9 @@ class PipelineDataset(Dataset):
                         # store
                         ref_box_corner_label_list[j] = ref_box_corner_label
 
-                    if bbox_label[i] == 1 and gt_id in object_ids_list[j]:
-                        multi_ref_box_label_list[j][i] = True
+                    if SCANREFER_PLUS_PLUS:
+                        if bbox_label[i] == 1 and gt_id in object_ids_list[j]:
+                            multi_ref_box_label_list[j][i] = True
 
 
             # basic info
@@ -324,7 +326,8 @@ class PipelineDataset(Dataset):
             data["ref_box_label"] = np.array(ref_box_label_list).astype(np.int64) # 0/1 reference labels for each object bbox
             data["ref_box_corner_label"] = np.array(ref_box_corner_label_list).astype(np.float32)
 
-            data["multi_ref_box_label_list"] = multi_ref_box_label_list
+            if SCANREFER_PLUS_PLUS:
+                data["multi_ref_box_label_list"] = multi_ref_box_label_list
 
         else:
             for i in range(self.chunk_size):

@@ -8,7 +8,7 @@ from lib.grounding.loss import SoftmaxRankingLoss, ContrastiveLoss
 from lib.utils.bbox import get_aabb3d_iou, get_aabb3d_iou_batch
 
 
-SCANREFER_PLUS_PLUS = True
+SCANREFER_PLUS_PLUS = False
 SCANREFER_ENHANCE_VANILLE = True
 
 
@@ -153,7 +153,8 @@ def get_grounding_loss(data_dict, grounding=True, use_oracle=False, is_frozen=Fa
 
             # compute the iou score for all predictd positive ref
             labels = np.zeros((batch_size, num_proposals))
-            box_masks = data_dict["multi_ref_box_label_list"].reshape(batch_size, num_proposals)
+            if SCANREFER_PLUS_PLUS:
+                box_masks = data_dict["multi_ref_box_label_list"].reshape(batch_size, num_proposals)
             for i in range(batch_size):
                 # convert the bbox parameters to bbox corners
                 if not SCANREFER_PLUS_PLUS:
