@@ -31,8 +31,7 @@ SCANREFER_PLUS_PLUS = True
 
 def load_conf(args):
     base_cfg = OmegaConf.load("conf/path.yaml")
-    cfg_path = os.path.join(base_cfg.OUTPUT_PATH, "config.yaml")
-    cfg = OmegaConf.load(cfg_path)
+    cfg = OmegaConf.load(args.config)
     cfg = OmegaConf.merge(base_cfg, cfg)
     
     root = os.path.join(cfg.general.output_root, args.folder)
@@ -52,7 +51,7 @@ def init_data(cfg):
     Dataset = getattr(DATA_MODULE, cfg.data.dataset)
     collate_fn = getattr(DATA_MODULE, "sparse_collate_fn")
 
-    SCAN2CAD = json.load(open(cfg.SCAN2CAD))
+    SCAN2CAD = json.load(open(os.path.join(cfg.SCAN2CAD, "scannet_instance_rotations.json")))
 
     raw_train = json.load(open(cfg["{}_PATH".format(cfg.general.dataset.upper())].train_split))
     raw_val = json.load(open(cfg["{}_PATH".format(cfg.general.dataset.upper())].val_split))
@@ -118,7 +117,6 @@ def init_model(cfg, dataset):
 
     checkpoint_name = "model.ckpt"
     checkpoint_path = os.path.join(cfg.general.root, checkpoint_name)
-    print(checkpoint_path)
     checkpoint = torch.load(checkpoint_path)
     model.load_state_dict(checkpoint["state_dict"], strict=False)
 
@@ -535,11 +533,11 @@ if __name__ == "__main__":
     parser.add_argument("-f", "--folder", type=str, required=True, help="path to folder with model")
     # parser.add_argument("-c", "--config", type=str, default="conf/pointgroup_grounding.yaml", help="path to config file")
     parser.add_argument("-s", "--split", type=str, default="val", help="specify data split")
+    parser.add_argument("-c", "--config", type=str, default="conf/pointgroup_grounding.yaml",
+                        help="path to config file")
     parser.add_argument("-t", "--task", type=str, choices=["detection", "grounding", "captioning"], \
         help="specify task: detection | grounding | captioning", required=True)
     args = parser.parse_args()
-
-    os.environ["CUDA_LAUNCH_BLOCKING"] = "1"
 
     print("=> loading configurations...")
     cfg = load_conf(args)

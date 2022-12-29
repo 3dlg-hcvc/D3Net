@@ -370,7 +370,6 @@ if __name__ == "__main__":
     parser.add_argument("-c", "--config", type=str, default="conf/pointgroup_speaker-listener.yaml", help="path to config file")
     args = parser.parse_args()
 
-    os.environ["CUDA_LAUNCH_BLOCKING"] = "1"
 
     print("=> loading configurations...")
     cfg = load_conf(args)
