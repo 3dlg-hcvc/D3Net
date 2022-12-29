@@ -41,7 +41,7 @@ def load_conf(args):
     cfg.data.split = args.split
     cfg.general.task = args.task
     cfg.general.root = root
-    cfg.data.num_des_per_scene = 8 # NOTE set to 1 for accurate evaluation - but it could take a long time
+    cfg.data.num_des_per_scene = 1 # NOTE set to 1 for accurate evaluation - but it could take a long time
     cfg.cluster.prepare_epochs = -1
 
     return cfg
