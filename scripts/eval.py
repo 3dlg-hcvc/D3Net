@@ -118,7 +118,7 @@ def init_model(cfg, dataset):
 
     checkpoint_name = "model.ckpt"
     checkpoint_path = os.path.join(cfg.general.root, checkpoint_name)
-
+    print(checkpoint_path)
     checkpoint = torch.load(checkpoint_path)
     model.load_state_dict(checkpoint["state_dict"], strict=False)
 

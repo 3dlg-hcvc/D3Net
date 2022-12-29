@@ -25,7 +25,7 @@ from lib.utils.transform import jitter, flip, rotz, elastic
 from lib.utils.bbox import get_3d_box, get_3d_box_batch
 
 MEAN_COLOR_RGB = np.array([109.8, 97.2, 83.8])
-SCANREFER_PLUS_PLUS = False
+SCANREFER_PLUS_PLUS = True
 
 
 class PipelineDataset(Dataset):
@@ -598,7 +598,8 @@ class PipelineDataset(Dataset):
         for data in raw_data:
             scene_id = data["scene_id"]
 
-            if scene_id not in scene_data_dict: scene_data_dict[scene_id] = []
+            if scene_id not in scene_data_dict:
+                scene_data_dict[scene_id] = []
 
             scene_data_dict[scene_id].append(data)
 

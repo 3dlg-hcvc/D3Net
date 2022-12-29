@@ -8,7 +8,7 @@ from lib.grounding.loss import SoftmaxRankingLoss, ContrastiveLoss
 from lib.utils.bbox import get_aabb3d_iou, get_aabb3d_iou_batch
 
 
-SCANREFER_PLUS_PLUS = False
+SCANREFER_PLUS_PLUS = True
 SCANREFER_ENHANCE_VANILLE = True
 
 
