@@ -10,6 +10,7 @@ import sys
 import os
 
 from lib.utils.bbox import get_aabb3d_iou
+SCANREFER_PLUS_PLUS = True
 
 def eval_ref_one_sample(pred_bbox, gt_bbox):
     """ Evaluate one grounding prediction
@@ -25,7 +26,7 @@ def eval_ref_one_sample(pred_bbox, gt_bbox):
 
     return iou
 
-def get_eval(data_dict, grounding=True, use_lang_classifier=False):
+def get_eval(data_dict, grounding=True, use_lang_classifier=False, final_output=None, mem_hash=None):
     """ Loss functions
 
     Args:
@@ -67,6 +68,12 @@ def get_eval(data_dict, grounding=True, use_lang_classifier=False):
 
     # compute localization metrics
     pred_ref = torch.argmax(data_dict["cluster_ref"] * pred_masks, 1) # (B,)
+
+    # scanrefer++ support, use threshold to filter predictions instead of argmax
+    if SCANREFER_PLUS_PLUS:
+        pred_ref_mul_obj_mask = (data_dict["cluster_ref"] * pred_masks) > 5
+    # end
+
     # store the calibrated predictions and masks
     data_dict["cluster_ref"] = data_dict["cluster_ref"] * pred_masks
 
@@ -110,6 +117,23 @@ def get_eval(data_dict, grounding=True, use_lang_classifier=False):
         object_cat_labels = data_dict["object_cat"].reshape(-1)
         flag = 1 if object_cat_labels[i] == 17 else 0
         others.append(flag)
+
+        # scanrefer++ support
+        multi_pred_bboxes = []
+        multi_pred_ref_idxs = pred_ref_mul_obj_mask[i].nonzero()
+        for idx in multi_pred_ref_idxs:
+            multi_pred_bboxes.append(pred_bbox_corners[i, idx])
+        output_info = {
+            "object_id": data_dict["object_id"].flatten()[i].item(),
+            "ann_id": data_dict["ann_id"].flatten()[i].item(),
+            "aabbs": multi_pred_bboxes
+        }
+        scene_id = data_dict["scene_id"][i // data_dict["chunk_ids"].shape[1]]
+        key = (scene_id, output_info["object_id"], output_info["ann_id"])
+        if final_output is not None and key not in mem_hash:
+            final_output[scene_id].append(output_info)
+        mem_hash[key] = True
+        # end
 
     # lang
     if grounding and use_lang_classifier:

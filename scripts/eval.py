@@ -27,6 +27,8 @@ from lib.grounding.loss_helper import get_loss
 from lib.grounding.eval_helper import get_eval
 from lib.captioning.eval_helper import eval_caption_step, eval_caption_epoch
 
+SCANREFER_PLUS_PLUS = True
+
 def load_conf(args):
     base_cfg = OmegaConf.load("conf/path.yaml")
     cfg_path = os.path.join(base_cfg.OUTPUT_PATH, "config.yaml")
@@ -145,7 +147,7 @@ def eval_detection(cfg, dataloader, model):
     with torch.no_grad():
         for data_dict in tqdm(dataloader):
             for key in data_dict.keys():
-                if isinstance(batch_data[key], list): continue
+                if isinstance(data_dict[key], list): continue
                 data_dict[key] = data_dict[key].cuda()
 
             torch.cuda.empty_cache()
@@ -169,6 +171,10 @@ def eval_grounding(cfg, dataset, dataloader, model):
     # random seeds
     seeds = [cfg.general.manual_seed] + [2 * i for i in range(cfg.eval.repeat - 1)]
 
+    # scanrefer++ support
+    seeds = [cfg.general.manual_seed]
+    # end
+
     # evaluate
     print("evaluating...")
     score_path = os.path.join(cfg.general.root, "scores.p")
@@ -187,6 +193,10 @@ def eval_grounding(cfg, dataset, dataloader, model):
             torch.backends.cudnn.benchmark = False
             np.random.seed(seed)
 
+            # scanrefer++ support
+            final_output = {}
+            mem_hash = {}
+
             print("generating the scores for seed {}...".format(seed))
             ref_acc = []
             ious = []
@@ -195,8 +205,15 @@ def eval_grounding(cfg, dataset, dataloader, model):
             lang_acc = []
             predictions = {}
             for data_dict in tqdm(dataloader):
+
+                # scanrefer++ support
+                if SCANREFER_PLUS_PLUS:
+                    for scene_id in data_dict["scene_id"]:
+                        if scene_id not in final_output:
+                            final_output[scene_id] = []
+
                 for key in data_dict:
-                    if isinstance(batch_data[key], list): continue
+                    if isinstance(data_dict[key], list): continue
                     data_dict[key] = data_dict[key].cuda()
 
                 torch.cuda.empty_cache()
@@ -218,7 +235,9 @@ def eval_grounding(cfg, dataset, dataloader, model):
                 data_dict = get_eval(
                     data_dict,
                     grounding=not model.no_grounding,
-                    use_lang_classifier=model.use_lang_classifier
+                    use_lang_classifier=model.use_lang_classifier,
+                    final_output=final_output,  # scanrefer++ support
+                    mem_hash=mem_hash  # scanrefer++ support
                 )
 
                 ref_acc += data_dict["ref_acc"]
@@ -264,6 +283,16 @@ def eval_grounding(cfg, dataset, dataloader, model):
             # save the last predictions
             with open(pred_path, "wb") as f:
                 pickle.dump(predictions, f)
+
+            if SCANREFER_PLUS_PLUS:
+                # scanrefer+= support
+                for key, value in final_output.items():
+                    for query in value:
+                        query["aabbs"] = [item.tolist() for item in query["aabbs"]]
+                    os.makedirs("scanrefer++_test", exist_ok=True)
+                    with open(f"scanrefer++_test/{key}.json", "w") as f:
+                        json.dump(value, f)
+                # end
 
             # save to global
             ref_acc_all.append(ref_acc)
