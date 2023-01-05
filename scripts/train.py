@@ -251,12 +251,14 @@ def init_logger(cfg):
 
 def init_monitor(cfg):
     monitor = pl.callbacks.ModelCheckpoint(
-        monitor="{}".format(cfg.general.monitor),
+        # monitor="{}".format(cfg.general.monitor),
         mode="{}".format(cfg.general.monitor_mode),
         # save_weights_only=True,
         dirpath=cfg.general.root,
         filename="model",
-        save_last=True
+        save_last=True,
+        save_top_k=-1,
+        every_n_epochs=2
     )
 
     return monitor
