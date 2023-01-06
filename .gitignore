@@ -10,3 +10,13 @@ data/glove_trimmed_ScanRefer.npy
 # pointgroup ops
 lib/pointgroup_ops/PG_OP*
 lib/pointgroup_ops/build
+lib/pointgroup_ops/dist
+
+lib/utils/build
+
+*.so
+*.egg
+*.log
+*.o
+
+data

@@ -6,10 +6,10 @@ import numpy as np
 
 from lib.grounding.loss import SoftmaxRankingLoss, ContrastiveLoss
 from lib.utils.bbox import get_aabb3d_iou, get_aabb3d_iou_batch
-
+from scipy.optimize import linear_sum_assignment
 
 SCANREFER_PLUS_PLUS = True
-SCANREFER_ENHANCE_VANILLE = True
+SCANREFER_ENHANCE_VANILLE = False
 
 
 def get_grounding_loss(data_dict, grounding=True, use_oracle=False, is_frozen=False, use_rl=False, loss="cross_entropy"):
@@ -166,11 +166,14 @@ def get_grounding_loss(data_dict, grounding=True, use_oracle=False, is_frozen=Fa
                 )
                 labels[i, ious.argmax()] = 1 # treat the bbox with highest iou score as the gt
                 if SCANREFER_PLUS_PLUS:
+
                     single_mask = box_masks[i]
                     if single_mask.sum() == 0:
                         continue
                     gt_bboxes = gt_bboxes_list[i // chunk_size][single_mask]
-                    for gt_box in gt_bboxes:
+
+                    iou_matrix = np.zeros(shape=(gt_bboxes.shape[0], ious.shape[0]))
+                    for k, gt_box in enumerate(gt_bboxes):
                         ious = get_aabb3d_iou_batch(
                             pred_bbox_corners[i].detach().cpu().numpy(),
                             gt_box.unsqueeze(0).repeat(num_proposals, 1, 1).detach().cpu().numpy()
@@ -180,8 +183,15 @@ def get_grounding_loss(data_dict, grounding=True, use_oracle=False, is_frozen=Fa
                             if filtered_ious_indices[0].shape[0] == 0:
                                 continue
                             new_labels[i, ious.argmax()] = 1
+                        else:
+                            iou_matrix[k] = ious * -1
+                    if not SCANREFER_ENHANCE_VANILLE:
+                        row_idx, col_idx = linear_sum_assignment(iou_matrix)
+                        for index in range(len(row_idx)):
+                            if (iou_matrix[row_idx[index], col_idx[index]] * -1) >= 0.25:
+                                new_labels[i, col_idx[index]] = 1
 
-            cluster_labels = torch.FloatTensor(new_labels).type_as(cluster_preds)
+                cluster_labels = torch.FloatTensor(new_labels).type_as(cluster_preds)
 
             # grounding loss
 
