@@ -92,10 +92,10 @@ def init_data(cfg):
 
     train_dataloader = DataLoader(cap_train_dataset, batch_size=cfg.data.batch_size, \
         shuffle=True, pin_memory=True, num_workers=cfg.data.num_workers, collate_fn=collate_fn)
-    val_dataloader = DataLoader(cap_val_dataset, batch_size=cfg.data.batch_size, \
-        shuffle=False, pin_memory=True, num_workers=cfg.data.num_workers, collate_fn=collate_fn)
+    val_dataloader = DataLoader(cap_val_dataset, batch_size=2, \
+        shuffle=False, pin_memory=False, num_workers=cfg.data.num_workers, collate_fn=collate_fn)
     det_dataloader = DataLoader(det_val_dataset, batch_size=cfg.data.batch_size, \
-        shuffle=False, pin_memory=True, num_workers=cfg.data.num_workers, collate_fn=collate_fn)
+        shuffle=False, pin_memory=False, num_workers=cfg.data.num_workers, collate_fn=collate_fn)
 
     dataset = {
         "train": cap_train_dataset,
@@ -115,7 +115,7 @@ def init_model(cfg, dataset):
     PipelineNet = getattr(import_module("model.pipeline"), "PipelineNet")
     model = PipelineNet(cfg, dataset)
 
-    checkpoint_name = "model.ckpt"
+    checkpoint_name = "model-v20.ckpt"
     checkpoint_path = os.path.join(cfg.general.root, checkpoint_name)
     checkpoint = torch.load(checkpoint_path)
     model.load_state_dict(checkpoint["state_dict"], strict=False)
@@ -187,8 +187,8 @@ def eval_grounding(cfg, dataset, dataloader, model):
         for seed in seeds:
             # reproducibility
             torch.manual_seed(seed)
-            torch.backends.cudnn.deterministic = True
-            torch.backends.cudnn.benchmark = False
+            # torch.backends.cudnn.deterministic = True
+            # torch.backends.cudnn.benchmark = False
             np.random.seed(seed)
 
             # scanrefer++ support

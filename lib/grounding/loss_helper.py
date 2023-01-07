@@ -191,7 +191,7 @@ def get_grounding_loss(data_dict, grounding=True, use_oracle=False, is_frozen=Fa
                             if (iou_matrix[row_idx[index], col_idx[index]] * -1) >= 0.25:
                                 new_labels[i, col_idx[index]] = 1
 
-                cluster_labels = torch.FloatTensor(new_labels).type_as(cluster_preds)
+            cluster_labels = torch.FloatTensor(new_labels).type_as(cluster_preds)
 
             # grounding loss
 

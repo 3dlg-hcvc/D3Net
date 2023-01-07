@@ -71,7 +71,7 @@ def get_eval(data_dict, grounding=True, use_lang_classifier=False, final_output=
 
     # scanrefer++ support, use threshold to filter predictions instead of argmax
     if SCANREFER_PLUS_PLUS:
-        pred_ref_mul_obj_mask = torch.logical_and((torch.sigmoid(data_dict["cluster_ref"]) >= 0.2), pred_masks.bool())
+        pred_ref_mul_obj_mask = torch.logical_and((torch.sigmoid(data_dict["cluster_ref"]) >= 0.4), pred_masks.bool())
         # pred_ref_mul_obj_mask = torch.logical_and((torch.nn.functional.softmax(data_dict["cluster_ref"]) >= 0.5), pred_masks.bool())
     # end
 
@@ -122,7 +122,7 @@ def get_eval(data_dict, grounding=True, use_lang_classifier=False, final_output=
         # scanrefer++ support
         multi_pred_bboxes = []
         multi_pred_ref_idxs = pred_ref_mul_obj_mask[i].nonzero()
-        for idx in multi_pred_ref_idxs[0]:
+        for idx in multi_pred_ref_idxs:
             multi_pred_bboxes.append(pred_bbox_corners[i, idx])
         output_info = {
             "object_id": data_dict["object_id"].flatten()[i].item(),
