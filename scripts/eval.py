@@ -214,12 +214,12 @@ def eval_grounding(cfg, dataset, dataloader, model):
                     if isinstance(data_dict[key], list): continue
                     data_dict[key] = data_dict[key].cuda()
 
-                torch.cuda.empty_cache()
+                # torch.cuda.empty_cache()
 
                 # feed
                 data_dict = model.detector.feed(data_dict)
                 _, data_dict = model.detector.parse_feed_ret(data_dict)
-                data_dict = model.detector.loss(data_dict, epoch=1)
+                # data_dict = model.detector.loss(data_dict, epoch=1)
 
                 data_dict = model.listener(data_dict)
 
@@ -279,8 +279,8 @@ def eval_grounding(cfg, dataset, dataloader, model):
                     predictions[scene_id][object_id][ann_id]["iou"] = data_dict["ref_iou"][i].detach().cpu().numpy()
 
             # save the last predictions
-            with open(pred_path, "wb") as f:
-                pickle.dump(predictions, f)
+            # with open(pred_path, "wb") as f:
+            #     pickle.dump(predictions, f)
 
             if SCANREFER_PLUS_PLUS:
                 # scanrefer+= support
@@ -552,7 +552,8 @@ if __name__ == "__main__":
     if args.task == "detection":
         eval_detection(cfg, dataloader["det"], model)
     elif args.task == "grounding":
-        eval_grounding(cfg, dataset["val"], dataloader["val"], model)
+        with torch.no_grad():
+            eval_grounding(cfg, dataset["val"], dataloader["val"], model)
     elif args.task == "captioning":
         eval_captioning(cfg, dataset["val"], dataloader["val"], model)
         

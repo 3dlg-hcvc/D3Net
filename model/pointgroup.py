@@ -24,7 +24,7 @@ class PointGroup(pl.LightningModule):
 
         self.cfg = cfg
 
-        self.save_hyperparameters()
+        # self.save_hyperparameters()
 
         self.DC = ScannetDatasetConfig(cfg)
 
