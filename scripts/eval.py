@@ -92,7 +92,7 @@ def init_data(cfg):
 
     train_dataloader = DataLoader(cap_train_dataset, batch_size=cfg.data.batch_size, \
         shuffle=True, pin_memory=True, num_workers=cfg.data.num_workers, collate_fn=collate_fn)
-    val_dataloader = DataLoader(cap_val_dataset, batch_size=2, \
+    val_dataloader = DataLoader(cap_val_dataset, batch_size=cfg.data.batch_size, \
         shuffle=False, pin_memory=False, num_workers=cfg.data.num_workers, collate_fn=collate_fn)
     det_dataloader = DataLoader(det_val_dataset, batch_size=cfg.data.batch_size, \
         shuffle=False, pin_memory=False, num_workers=cfg.data.num_workers, collate_fn=collate_fn)
