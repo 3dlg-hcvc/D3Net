@@ -145,13 +145,14 @@ def eval_detection(cfg, dataloader, model):
     with torch.no_grad():
         for data_dict in tqdm(dataloader):
             for key in data_dict.keys():
-                if isinstance(data_dict[key], list): continue
+                if isinstance(data_dict[key], list):
+                    continue
                 data_dict[key] = data_dict[key].cuda()
 
             torch.cuda.empty_cache()
 
-            with torch.no_grad():
-                data_dict = model.detector.feed(data_dict, epoch=1)
+
+            data_dict = model.detector.feed(data_dict, epoch=1)
             
             batch_pred_map_cls = parse_predictions(data_dict, POST_DICT) 
             batch_gt_map_cls = parse_groundtruths(data_dict, POST_DICT) 
@@ -287,8 +288,8 @@ def eval_grounding(cfg, dataset, dataloader, model):
                 for key, value in final_output.items():
                     for query in value:
                         query["aabbs"] = [item.tolist() for item in query["aabbs"]]
-                    os.makedirs("scanrefer++_test", exist_ok=True)
-                    with open(f"scanrefer++_test/{key}.json", "w") as f:
+                    os.makedirs("vanilla_0.1", exist_ok=True)
+                    with open(f"vanilla_0.1/{key}.json", "w") as f:
                         json.dump(value, f)
                 # end
 

@@ -180,7 +180,9 @@ class PipelineNet(pl.LightningModule):
             # forward pass
             data_dict = self.detector.feed(data_dict, self.current_epoch)
             _, data_dict = self.detector.parse_feed_ret(data_dict)
-            data_dict = self.detector.loss(data_dict, self.current_epoch)
+
+            if not self.cfg.data.requires_gt_mask:
+                data_dict = self.detector.loss(data_dict, self.current_epoch)
             data_dict = self.listener(data_dict)
 
             _, data_dict = get_grounding_loss(
@@ -191,7 +193,10 @@ class PipelineNet(pl.LightningModule):
                 use_rl=False
             )
 
-            loss = data_dict["total_loss"][0] + data_dict["ref_loss"] + data_dict["lang_loss"]
+            if not self.cfg.data.requires_gt_mask:
+                loss = data_dict["total_loss"][0] + data_dict["ref_loss"] + data_dict["lang_loss"]
+            else:
+                loss = data_dict["ref_loss"] + data_dict["lang_loss"]
 
             # unpack
             log_dict = {
