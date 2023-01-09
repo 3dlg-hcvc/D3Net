@@ -287,7 +287,7 @@ def init_model(cfg, dataset):
 
     print("=> current mode: {}...".format(model.mode))
 
-    if cfg.model.pretrained_detector and not cfg.model.no_detection and not cfg.model.use_checkpoint:
+    if cfg.model.pretrained_detector and not cfg.model.no_detection and not cfg.model.use_checkpoint and not cfg.data.requires_gt_mask:
         device_name = "cuda:{}".format(os.environ.get("LOCAL_RANK", 0))
 
         print("=> loading pretrained detector to {} ...".format(device_name))
