@@ -20,3 +20,7 @@ lib/utils/build
 *.o
 
 data
+
+__pycache__
+
+*cpython-*.pyc
