@@ -82,7 +82,10 @@ class PipelineDataset(Dataset):
 
         # prepare scene data
         scene = self.scenes[scene_id]
-        points, feats = self._get_coord_and_feat_from_mesh(scene["aligned_mesh"], scene_id)
+        if self.cfg.data.requires_gt_mask:
+            points, feats = self._get_coord_and_feat_from_mesh(scene["aligned_mesh"], scene_id, scene["choices"])
+        else:
+            points, feats = self._get_coord_and_feat_from_mesh(scene["aligned_mesh"], scene_id)
         
         # print("point data loaded.")
         # store to dict
@@ -177,10 +180,11 @@ class PipelineDataset(Dataset):
                 size_classes, size_residuals, bbox_label) = self._getInstanceInfo(points_augment, instance_ids, sem_labels)
 
                 if self.cfg.data.requires_gt_mask:
-                    gt_proposals_idx, gt_proposals_offset, _, _ = self._generate_gt_clusters(points, instance_ids)
+                    gt_proposals_idx, gt_proposals_offset, _, instances_bboxes_tmp = self._generate_gt_clusters(points, instance_ids)
                     
                     data["gt_proposals_idx"] = gt_proposals_idx
                     data["gt_proposals_offset"] = gt_proposals_offset
+                    data["instances_bboxes_tmp"] = instances_bboxes_tmp
 
                 # for instance segmentation
                 data["locs"] = points_augment.astype(np.float32)  # (N, 3)
@@ -784,7 +788,7 @@ class PipelineDataset(Dataset):
         else:
             return num_instance, instance_info, instance_num_point
 
-    def _get_coord_and_feat_from_mesh(self, mesh_data, scene_id):
+    def _get_coord_and_feat_from_mesh(self, mesh_data, scene_id, choices=None):
         data = mesh_data[:, :3]
 
         if self.use_color:
@@ -806,7 +810,8 @@ class PipelineDataset(Dataset):
                 multiview = self.multiview_data[pid][scene_id][()]
             except KeyError:
                 multiview = np.zeros((data.shape[0], 128)) # placeholder
-
+            if choices is not None:
+                multiview = multiview[choices]
             data = np.concatenate([data, multiview], 1)
 
         coords = data[:, :3]
@@ -906,7 +911,7 @@ def scannet_collate_fn(batch):
     batch_size = batch.__len__()
     data = {}
     for key in batch[0].keys():
-        if key in ['locs', 'locs_scaled', 'feats', 'sem_labels', 'instance_ids', 'num_instance', 'instance_info', 'instance_num_point', 'gt_proposals_idx', 'gt_proposals_offset']:
+        if key in ['locs', 'locs_scaled', 'feats', 'sem_labels', 'instance_ids', 'num_instance', 'instance_info', 'instance_num_point', 'gt_proposals_idx', 'gt_proposals_offset', "instances_bboxes_tmp"]:
             continue
         if isinstance(batch[0][key], tuple):
             coords, feats = list(zip(*[sample[key] for sample in batch]))
@@ -946,6 +951,7 @@ def sparse_collate_fn(batch):
 
         gt_proposals_idx = []
         gt_proposals_offset = []
+        instances_bboxes_tmp = []
     
         for i, b in enumerate(batch):
             locs.append(torch.from_numpy(b["locs"]))
@@ -963,6 +969,7 @@ def sparse_collate_fn(batch):
                 gt_proposals_idx_i[:, 0] += total_num_inst
                 gt_proposals_idx_i[:, 1] += total_points
                 gt_proposals_idx.append(torch.from_numpy(b["gt_proposals_idx"]))
+                instances_bboxes_tmp.append(torch.from_numpy(b["instances_bboxes_tmp"]))
                 if gt_proposals_offset != []:
                     gt_proposals_offset_i = b["gt_proposals_offset"]
                     gt_proposals_offset_i += gt_proposals_offset[-1][-1].item()
@@ -998,7 +1005,7 @@ def sparse_collate_fn(batch):
         if len(gt_proposals_idx) > 0:
             data["gt_proposals_idx"] = torch.cat(gt_proposals_idx, 0).to(torch.int32)
             data["gt_proposals_offset"] = torch.cat(gt_proposals_offset, 0).to(torch.int32)
-
+            data["instances_bboxes_tmp"] = torch.cat(instances_bboxes_tmp, 0).to(torch.int32)
         # print("raw data collated.")
 
         ### voxelize

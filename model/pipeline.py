@@ -5,6 +5,7 @@ import numpy as np
 import pytorch_lightning as pl
 from data.scannet.model_util_scannet_d3net import ScannetDatasetConfig
 from model.pointgroup import PointGroup
+from model.gt_detector import GTDetector
 from model.speaker import SpeakerNet
 from model.listener import ListenerNet
 
@@ -52,8 +53,11 @@ class PipelineNet(pl.LightningModule):
                 "caption_reward_weight": self.cfg.train.caption_reward_weight,
             }
 
-        if not self.no_detection:
+        if cfg.data.requires_gt_mask and not self.no_detection:
+            self.detector = GTDetector(cfg)
+        elif not self.no_detection:
             self.detector = PointGroup(cfg)
+
 
         if not self.no_captioning:
             self.speaker = SpeakerNet(cfg, self.vocabulary, self.embeddings)
@@ -199,22 +203,39 @@ class PipelineNet(pl.LightningModule):
                 loss = data_dict["ref_loss"] + data_dict["lang_loss"]
 
             # unpack
-            log_dict = {
-                "loss": loss,
+            if not self.cfg.data.requires_gt_mask:
+                log_dict = {
+                    "loss": loss,
 
-                "detect_loss": data_dict["total_loss"][0],
-                "grounding_loss": data_dict["ref_loss"],
-                "lobjcls_loss": data_dict["lang_loss"],
+                    "detect_loss": data_dict["total_loss"][0],
+                    "grounding_loss": data_dict["ref_loss"],
+                    "lobjcls_loss": data_dict["lang_loss"],
 
-                "ref_acc_mean": data_dict["ref_acc_mean"],
-                "ref_iou_mean": data_dict["ref_iou_mean"],
-                "best_ious_mean": data_dict["best_ious_mean"],
+                    "ref_acc_mean": data_dict["ref_acc_mean"],
+                    "ref_iou_mean": data_dict["ref_iou_mean"],
+                    "best_ious_mean": data_dict["best_ious_mean"],
 
-                "ref_iou_rate_0.25": data_dict["ref_iou_rate_0.25"],
-                "ref_iou_rate_0.5": data_dict["ref_iou_rate_0.5"],
+                    "ref_iou_rate_0.25": data_dict["ref_iou_rate_0.25"],
+                    "ref_iou_rate_0.5": data_dict["ref_iou_rate_0.5"],
 
-                "lang_acc": data_dict["lang_acc"],
-            }
+                    "lang_acc": data_dict["lang_acc"],
+                }
+            else:
+                log_dict = {
+                    "loss": loss,
+
+                    "grounding_loss": data_dict["ref_loss"],
+                    "lobjcls_loss": data_dict["lang_loss"],
+
+                    "ref_acc_mean": data_dict["ref_acc_mean"],
+                    "ref_iou_mean": data_dict["ref_iou_mean"],
+                    "best_ious_mean": data_dict["best_ious_mean"],
+
+                    "ref_iou_rate_0.25": data_dict["ref_iou_rate_0.25"],
+                    "ref_iou_rate_0.5": data_dict["ref_iou_rate_0.5"],
+
+                    "lang_acc": data_dict["lang_acc"],
+                }
 
             # log
             in_prog_bar = ["ref_iou_rate_0.5"]
@@ -484,7 +505,8 @@ class PipelineNet(pl.LightningModule):
         elif self.mode == 2:
             data_dict = self.detector.feed(data_dict, self.current_epoch)
             _, data_dict = self.detector.parse_feed_ret(data_dict)
-            data_dict = self.detector.loss(data_dict, self.current_epoch)
+            if not self.cfg.data.requires_gt_mask:
+                data_dict = self.detector.loss(data_dict, self.current_epoch)
 
             data_dict = self.listener(data_dict)
 

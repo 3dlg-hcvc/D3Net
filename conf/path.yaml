@@ -7,7 +7,7 @@ SCANNETV2_PATH:
   raw_scans: /datasets/released/scannet/public/v2/scans
 
   dir: ${DATA_PATH}/scannet
-  split_data: ${SCANNETV2_PATH.dir}/split_data #TODO
+  split_data: ${SCANNETV2_PATH.dir}/split_data_50000 #TODO
   split_gt: ${SCANNETV2_PATH.dir}/split_gt
   meta_data: ${SCANNETV2_PATH.dir}/meta_data
 
@@ -21,7 +21,7 @@ SCANNETV2_PATH:
 
   enet_weights: ${DATA_PATH}/scannetv2_enet.pth
   enet_features: ${DATA_PATH}/enet_features
-  multiview_features: /project/3dlg-hcvc/scanrefer++/d3net/data/enet_feats_maxpool.hdf5
+  multiview_features: /localscratch/yza440/pointgroup-grounding/data/enet_feats_maxpool.hdf5
 
   gt_features: ${DATA_PATH}/VoteNet_GT_features_200 # TODO -> prepare this
 
