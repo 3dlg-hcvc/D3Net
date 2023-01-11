@@ -180,7 +180,7 @@ class PipelineDataset(Dataset):
                 size_classes, size_residuals, bbox_label) = self._getInstanceInfo(points_augment, instance_ids, sem_labels)
 
                 if self.cfg.data.requires_gt_mask:
-                    gt_proposals_idx, gt_proposals_offset, _, instances_bboxes_tmp = self._generate_gt_clusters(points, instance_ids)
+                    gt_proposals_idx, gt_proposals_offset, _, instances_bboxes_tmp = self._generate_gt_clusters(points_augment, instance_ids)
                     
                     data["gt_proposals_idx"] = gt_proposals_idx
                     data["gt_proposals_offset"] = gt_proposals_offset
@@ -828,8 +828,8 @@ class PipelineDataset(Dataset):
         
         object_ids = []
         for cid, i_ in enumerate(unique_instance_ids, -1):
-            if i_ < 0: continue
-            
+            if i_ < 0:
+                continue
             object_ids.append(i_)
             inst_i_idx = np.where(instance_ids == i_)[0]
             inst_i_points = points[inst_i_idx]

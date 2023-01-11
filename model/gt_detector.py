@@ -119,7 +119,7 @@ class GTDetector(pl.LightningModule):
         batch_size = len(data_dict["batch_offsets"]) - 1
         x = ME.SparseTensor(features=data_dict["voxel_feats"], coordinates=data_dict["voxel_locs"].int())
 
-        #### backbone
+        # backbone
         out = self.backbone(x)
         pt_feats = out.features[data_dict["p2v_map"].long()]  # (N, m)
 
@@ -132,7 +132,6 @@ class GTDetector(pl.LightningModule):
 
         proposals_batchId = proposals_batchId_all[data_dict["gt_proposals_offset"][:-1].long()]
         sem_labels = torch.empty(size=(num_proposals, ), device=self.device)
-
 
         for idx in range(num_proposals):
             start_idx = data_dict["gt_proposals_offset"][idx]
