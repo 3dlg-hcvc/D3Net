@@ -504,8 +504,9 @@ class PipelineNet(pl.LightningModule):
 
         elif self.mode == 2:
             data_dict = self.detector.feed(data_dict, self.current_epoch)
-            _, data_dict = self.detector.parse_feed_ret(data_dict)
+
             if not self.cfg.data.requires_gt_mask:
+                _, data_dict = self.detector.parse_feed_ret(data_dict)
                 data_dict = self.detector.loss(data_dict, self.current_epoch)
 
             data_dict = self.listener(data_dict)
