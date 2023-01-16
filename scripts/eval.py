@@ -46,7 +46,7 @@ def load_conf(args):
 
     return cfg
 
-def init_data(cfg):
+def init_data(cfg, split="val"):
     DATA_MODULE = import_module(cfg.data.module)
     Dataset = getattr(DATA_MODULE, cfg.data.dataset)
     collate_fn = getattr(DATA_MODULE, "sparse_collate_fn")
@@ -83,10 +83,10 @@ def init_data(cfg):
     cap_train_dataset = Dataset(cfg, cfg.general.dataset, mode, "train", raw_train, raw_train_scan_list, SCAN2CAD)
 
     print("=> loading val split...")
-    cap_val_dataset = Dataset(cfg, cfg.general.dataset, mode, "val", raw_val, raw_val_scan_list, SCAN2CAD)
+    cap_val_dataset = Dataset(cfg, cfg.general.dataset, mode, split, raw_val, raw_val_scan_list, SCAN2CAD)
     
     print("=> loading val split for detection...")
-    det_val_dataset = Dataset(cfg, cfg.general.dataset, mode, "val", det_val, det_val_scan_list)
+    det_val_dataset = Dataset(cfg, cfg.general.dataset, mode, split, det_val, det_val_scan_list)
 
     print("=> loading complete")
 
@@ -545,7 +545,7 @@ if __name__ == "__main__":
     cfg = load_conf(args)
 
     print("=> initializing data...")
-    dataset, dataloader = init_data(cfg)
+    dataset, dataloader = init_data(cfg, args.split)
 
     print("=> initializing model...")
     model = init_model(cfg, dataset)
