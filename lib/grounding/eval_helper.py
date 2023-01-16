@@ -4,13 +4,11 @@
 # LICENSE file in the root directory of this source tree.
 
 import torch
-import torch.nn as nn
-import numpy as np
-import sys
-import os
+
 
 from lib.utils.bbox import get_aabb3d_iou
-SCANREFER_PLUS_PLUS = True
+from macro import *
+
 
 def eval_ref_one_sample(pred_bbox, gt_bbox):
     """ Evaluate one grounding prediction
@@ -70,8 +68,8 @@ def get_eval(data_dict, grounding=True, use_lang_classifier=False, final_output=
     pred_ref = torch.argmax(data_dict["cluster_ref"] * pred_masks, 1) # (B,)
 
     # scanrefer++ support, use threshold to filter predictions instead of argmax
-    if SCANREFER_PLUS_PLUS:
-        pred_ref_mul_obj_mask = torch.logical_and((torch.sigmoid(data_dict["cluster_ref"]) >= 0.1), pred_masks.bool())
+    if SCANREFER_ENHANCE:
+        pred_ref_mul_obj_mask = torch.logical_and((torch.sigmoid(data_dict["cluster_ref"]) >= SCANREFER_ENHANCE_EVAL_THRESHOLD), pred_masks.bool())
         # pred_ref_mul_obj_mask = torch.logical_and((torch.nn.functional.softmax(data_dict["cluster_ref"]) >= 0.5), pred_masks.bool())
     # end
 

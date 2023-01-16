@@ -27,7 +27,7 @@ from lib.grounding.loss_helper import get_loss
 from lib.grounding.eval_helper import get_eval
 from lib.captioning.eval_helper import eval_caption_step, eval_caption_epoch
 
-SCANREFER_PLUS_PLUS = True
+from macro import *
 
 def load_conf(args):
     base_cfg = OmegaConf.load("conf/path.yaml")
@@ -115,7 +115,7 @@ def init_model(cfg, dataset):
     PipelineNet = getattr(import_module("model.pipeline"), "PipelineNet")
     model = PipelineNet(cfg, dataset)
 
-    checkpoint_name = "model-v20.ckpt"
+    checkpoint_name = "model-v24.ckpt"
     checkpoint_path = os.path.join(cfg.general.root, checkpoint_name)
     checkpoint = torch.load(checkpoint_path)
     model.load_state_dict(checkpoint["state_dict"], strict=False)
@@ -206,7 +206,7 @@ def eval_grounding(cfg, dataset, dataloader, model):
             for data_dict in tqdm(dataloader):
 
                 # scanrefer++ support
-                if SCANREFER_PLUS_PLUS:
+                if SCANREFER_ENHANCE:
                     for scene_id in data_dict["scene_id"]:
                         if scene_id not in final_output:
                             final_output[scene_id] = []
@@ -283,13 +283,13 @@ def eval_grounding(cfg, dataset, dataloader, model):
             # with open(pred_path, "wb") as f:
             #     pickle.dump(predictions, f)
 
-            if SCANREFER_PLUS_PLUS:
+            if SCANREFER_ENHANCE:
                 # scanrefer+= support
                 for key, value in final_output.items():
                     for query in value:
                         query["aabbs"] = [item.tolist() for item in query["aabbs"]]
-                    os.makedirs("vanilla_0.1", exist_ok=True)
-                    with open(f"vanilla_0.1/{key}.json", "w") as f:
+                    os.makedirs(EVAL_SAVE_NAME, exist_ok=True)
+                    with open(f"{EVAL_SAVE_NAME}/{key}.json", "w") as f:
                         json.dump(value, f)
                 # end
 
@@ -528,6 +528,7 @@ def eval_captioning(cfg, dataset, dataloader, model):
         print("[ROUGE-L] Mean: {:.4f}, Max: {:.4f}, Min: {:.4f}".format(rouge[0], max(rouge[1]), min(rouge[1])))
         print("[METEOR] Mean: {:.4f}, Max: {:.4f}, Min: {:.4f}".format(meteor[0], max(meteor[1]), min(meteor[1])))
         print()
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()

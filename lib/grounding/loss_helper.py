@@ -1,15 +1,10 @@
-
 import torch
-
 import torch.nn as nn
 import numpy as np
-
 from lib.grounding.loss import SoftmaxRankingLoss, ContrastiveLoss
 from lib.utils.bbox import get_aabb3d_iou, get_aabb3d_iou_batch
 from scipy.optimize import linear_sum_assignment
-
-SCANREFER_PLUS_PLUS = True
-SCANREFER_ENHANCE_VANILLE = False
+from macro import *
 
 
 def get_grounding_loss(data_dict, grounding=True, use_oracle=False, is_frozen=False, use_rl=False, loss="cross_entropy"):
@@ -21,7 +16,6 @@ def get_grounding_loss(data_dict, grounding=True, use_oracle=False, is_frozen=Fa
     """
 
     if grounding:
-
         # unpack
         if use_rl:
             sampled_preds = data_dict["cluster_ref"]["sampled"] # (B, num_proposal)
@@ -58,11 +52,9 @@ def get_grounding_loss(data_dict, grounding=True, use_oracle=False, is_frozen=Fa
                 labels[i, ious.argmax()] = 1 # treat the bbox with highest iou score as the gt
 
             cluster_labels = torch.FloatTensor(labels).type_as(sampled_preds)
-
             sampled_ious = []
             baseline_ious = []
             best_ious = []
-            
             sampled_ref = sampled_preds.argmax(-1) # batch_size
             baseline_ref = baseline_preds.argmax(-1) # batch_size
             label_ref = cluster_labels.argmax(-1) # batch_size
@@ -80,8 +72,6 @@ def get_grounding_loss(data_dict, grounding=True, use_oracle=False, is_frozen=Fa
                 label_ref_idx = label_ref[i]
                 best_bbox = pred_bbox_corners[i, label_ref_idx] # 8, 3
                 best_ious.append(get_aabb3d_iou(best_bbox.detach().cpu().numpy(), gt_bbox.detach().cpu().numpy()))
-
-            
             data_dict["cluster_labels"] = cluster_labels
 
             if loss == "cross_entropy":
@@ -115,7 +105,6 @@ def get_grounding_loss(data_dict, grounding=True, use_oracle=False, is_frozen=Fa
             sampled_ious = torch.tensor(sampled_ious).type_as(bbox_features)
             ref_acc_0_25 = sampled_ious[sampled_ious >= 0.25].shape[0] / sampled_ious.shape[0]
             ref_acc_0_5 = sampled_ious[sampled_ious >= 0.5].shape[0] / sampled_ious.shape[0]
-
             best_ious = torch.tensor(best_ious).type_as(bbox_features)
 
             # store
@@ -131,7 +120,6 @@ def get_grounding_loss(data_dict, grounding=True, use_oracle=False, is_frozen=Fa
             data_dict["best_ious_mean"] = best_ious.mean()
             data_dict["ref_iou_rate_0.25"] = ref_acc_0_25
             data_dict["ref_iou_rate_0.5"] = ref_acc_0_5
-
         else:
             bbox_features = data_dict["proposal_feats_batched"]
             cluster_preds = data_dict["cluster_ref"] # (B*C, num_proposal)
@@ -148,7 +136,7 @@ def get_grounding_loss(data_dict, grounding=True, use_oracle=False, is_frozen=Fa
 
             gt_bbox_corners = data_dict["ref_box_corner_label"] # (B, 8, 3)
             gt_bbox_corners = gt_bbox_corners.reshape(batch_size, 8, 3)
-            if SCANREFER_PLUS_PLUS:
+            if SCANREFER_ENHANCE:
                 gt_bboxes_list = data_dict["gt_bbox"]
 
             # compute the iou score for all predictd positive ref
@@ -156,7 +144,7 @@ def get_grounding_loss(data_dict, grounding=True, use_oracle=False, is_frozen=Fa
 
             new_labels = np.zeros((batch_size, num_proposals))
 
-            if SCANREFER_PLUS_PLUS:
+            if SCANREFER_ENHANCE:
                 box_masks = data_dict["multi_ref_box_label_list"].reshape(batch_size, num_proposals)
             for i in range(batch_size):
                 # convert the bbox parameters to bbox corners
@@ -165,8 +153,7 @@ def get_grounding_loss(data_dict, grounding=True, use_oracle=False, is_frozen=Fa
                     gt_bbox_corners[i].unsqueeze(0).repeat(num_proposals, 1, 1).detach().cpu().numpy()
                 )
                 labels[i, ious.argmax()] = 1 # treat the bbox with highest iou score as the gt
-                if SCANREFER_PLUS_PLUS:
-
+                if SCANREFER_ENHANCE:
                     single_mask = box_masks[i]
                     if single_mask.sum() == 0:
                         continue
@@ -179,7 +166,7 @@ def get_grounding_loss(data_dict, grounding=True, use_oracle=False, is_frozen=Fa
                             gt_box.unsqueeze(0).repeat(num_proposals, 1, 1).detach().cpu().numpy()
                         )
                         if SCANREFER_ENHANCE_VANILLE:
-                            filtered_ious_indices = np.where(ious >= 0.25)
+                            filtered_ious_indices = np.where(ious >= SCANREFER_ENHANCE_LOSS_THRESHOLD)
                             if filtered_ious_indices[0].shape[0] == 0:
                                 continue
                             new_labels[i, ious.argmax()] = 1
@@ -188,15 +175,13 @@ def get_grounding_loss(data_dict, grounding=True, use_oracle=False, is_frozen=Fa
                     if not SCANREFER_ENHANCE_VANILLE:
                         row_idx, col_idx = linear_sum_assignment(iou_matrix)
                         for index in range(len(row_idx)):
-                            if (iou_matrix[row_idx[index], col_idx[index]] * -1) >= 0.25:
+                            if (iou_matrix[row_idx[index], col_idx[index]] * -1) >= SCANREFER_ENHANCE_LOSS_THRESHOLD:
                                 new_labels[i, col_idx[index]] = 1
-
             cluster_labels = torch.FloatTensor(new_labels).type_as(cluster_preds)
 
             # grounding loss
-
             if loss == "cross_entropy":
-                if SCANREFER_PLUS_PLUS:
+                if SCANREFER_ENHANCE:
                     criterion = nn.MultiLabelSoftMarginLoss()
                 else:
                     criterion = SoftmaxRankingLoss()
@@ -216,30 +201,6 @@ def get_grounding_loss(data_dict, grounding=True, use_oracle=False, is_frozen=Fa
 
             data_dict["cluster_labels"] = cluster_labels
 
-
-            # if SCANREFER_PLUS_PLUS:
-            #     multi_pred_bboxes = []
-            #     multi_gt_bboxes = []
-            #     objectness_mask_preds = data_dict["proposal_batch_mask"].long()
-            #     pred_masks = (objectness_mask_preds == 1).float()
-            #     pred_ref_mul_obj_mask = torch.logical_and((torch.sigmoid(cluster_preds) >= 0.4), pred_masks.bool().repeat(1, chunk_size).reshape(batch_size, -1))
-            #
-            #     for i in range(cluster_preds.shape[0]):
-            #         multi_pred_bboxes_tmp = []
-            #         single_mask = box_masks[i]
-            #         if single_mask.sum() == 0:
-            #             continue
-            #         gt_bboxes = gt_bboxes_list[i // chunk_size][single_mask]
-            #         multi_gt_bboxes.append(gt_bboxes)
-            #         multi_pred_ref_idxs = pred_ref_mul_obj_mask[i].nonzero()
-            #         for idx in multi_pred_ref_idxs:
-            #             pred_bbox = pred_bbox_corners[i, idx]
-            #             multi_pred_bboxes_tmp.append(pred_bbox)
-            #         multi_pred_bboxes.append(multi_pred_bboxes_tmp)
-            #         # TODO
-
-
-
             # grounding acc
             cluster_labels = cluster_labels.argmax(-1) # (B,)
             cluster_preds = cluster_preds.argmax(-1) # (B,)
@@ -255,13 +216,10 @@ def get_grounding_loss(data_dict, grounding=True, use_oracle=False, is_frozen=Fa
                 gt_bbox = gt_bbox_corners[i]
                 iou = get_aabb3d_iou(pred_bbox.detach().cpu().numpy(), gt_bbox.detach().cpu().numpy())
                 ious.append(iou)
-
                 gt_ref_idx = cluster_labels[i]
                 best_bbox = pred_bbox_corners[i, gt_ref_idx]
                 iou = get_aabb3d_iou(best_bbox.detach().cpu().numpy(), gt_bbox.detach().cpu().numpy())
                 best_ious.append(iou)
-
-
             ious = torch.FloatTensor(ious).type_as(bbox_features)
             best_ious = torch.FloatTensor(best_ious).type_as(bbox_features)
 
@@ -279,18 +237,16 @@ def get_grounding_loss(data_dict, grounding=True, use_oracle=False, is_frozen=Fa
     else:
         # pc = data_dict["point_clouds"]
         bbox_features = data_dict["bbox_feature"]
-
         data_dict["ref_loss"] = torch.zeros(1)[0].type_as(bbox_features)
         data_dict["ref_acc_mean"] = torch.zeros(1)[0].type_as(bbox_features)
         data_dict["ref_iou_mean"] = torch.zeros(1)[0].type_as(bbox_features)
         data_dict["best_iou_mean"] = torch.zeros(1)[0].type_as(bbox_features)
         data_dict["ref_acc_0_25"] = torch.zeros(1)[0].type_as(bbox_features)
         data_dict["ref_acc_0_5"] = torch.zeros(1)[0].type_as(bbox_features)
-
     # exposed loss
     loss = data_dict["ref_loss"]
-
     return loss, data_dict
+
 
 def get_lobjcls_loss(data_dict, lang_cls=True, is_frozen=False, use_rl=False):
     """ Compute object classification loss
@@ -303,9 +259,7 @@ def get_lobjcls_loss(data_dict, lang_cls=True, is_frozen=False, use_rl=False):
     """
 
     if lang_cls:
-        
         if use_rl:
-
             sampled_preds = data_dict["lang_scores"]["sampled"] # (B * chunk_size, num_cls)
             baseline_preds = data_dict["lang_scores"]["baseline"] # (B * chunk_size, num_cls)
 
@@ -333,9 +287,7 @@ def get_lobjcls_loss(data_dict, lang_cls=True, is_frozen=False, use_rl=False):
             data_dict["lang_acc"] = sampled_acc
             data_dict["lang_sampled_acc"] = sampled_acc
             data_dict["lang_baseline_acc"] = baseline_acc
-
         else:
-
             # unpack
             preds = data_dict["lang_scores"] # (B, num_cls)
             targets = data_dict.get("ref_cat_label", data_dict["object_cat"]) # (B,)
@@ -365,6 +317,7 @@ def get_lobjcls_loss(data_dict, lang_cls=True, is_frozen=False, use_rl=False):
 
     return loss, data_dict
 
+
 def get_loss(data_dict, use_oracle, grounding, use_lang_classifier, use_rl):
     """ Loss functions
 
@@ -376,8 +329,6 @@ def get_loss(data_dict, use_oracle, grounding, use_lang_classifier, use_rl):
         loss: pytorch scalar tensor
         data_dict: dict
     """
-
-
     # grounding loss
     _, data_dict = get_grounding_loss(
         data_dict, 

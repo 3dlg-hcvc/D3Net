@@ -7,7 +7,7 @@ SCANNETV2_PATH:
   raw_scans: /datasets/released/scannet/public/v2/scans
 
   dir: ${DATA_PATH}/scannet
-  split_data: ${SCANNETV2_PATH.dir}/split_data_50000 #TODO
+  split_data: ${SCANNETV2_PATH.dir}/split_data #TODO
   split_gt: ${SCANNETV2_PATH.dir}/split_gt
   meta_data: ${SCANNETV2_PATH.dir}/meta_data
 

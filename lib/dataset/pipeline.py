@@ -23,9 +23,8 @@ from lib.pointgroup_ops.functions import pointgroup_ops
 from lib.utils.pc import crop
 from lib.utils.transform import jitter, flip, rotz, elastic
 from lib.utils.bbox import get_3d_box, get_3d_box_batch
-
+from macro import *
 MEAN_COLOR_RGB = np.array([109.8, 97.2, 83.8])
-SCANREFER_PLUS_PLUS = True
 
 
 class PipelineDataset(Dataset):
@@ -97,7 +96,7 @@ class PipelineDataset(Dataset):
                 if i < actual_chunk_size:
                     chunk_id = i
                     object_id = self.chunked_data[idx][i]["object_id"]
-                    if SCANREFER_PLUS_PLUS:
+                    if SCANREFER_ENHANCE:
                         object_ids = self.chunked_data[idx][i]["object_ids"]
                     if object_id != "SYNTHETIC":
                         annotated = 1
@@ -136,7 +135,7 @@ class PipelineDataset(Dataset):
                 # is smaller than num_des_per_scene
                 chunk_id_list[i] = chunk_id
                 object_id_list[i] = object_id
-                if SCANREFER_PLUS_PLUS:
+                if SCANREFER_ENHANCE:
                     object_ids_list.append(object_ids)
                 ann_id_list[i] = ann_id
                 lang_feat_list[i] = lang_feat
@@ -286,7 +285,7 @@ class PipelineDataset(Dataset):
                         # store
                         ref_box_corner_label_list[j] = ref_box_corner_label
 
-                    if SCANREFER_PLUS_PLUS:
+                    if SCANREFER_ENHANCE:
                         if bbox_label[i] == 1 and gt_id in object_ids_list[j]:
                             multi_ref_box_label_list[j][i] = True
 
@@ -330,7 +329,7 @@ class PipelineDataset(Dataset):
             data["ref_box_label"] = np.array(ref_box_label_list).astype(np.int64) # 0/1 reference labels for each object bbox
             data["ref_box_corner_label"] = np.array(ref_box_corner_label_list).astype(np.float32)
 
-            if SCANREFER_PLUS_PLUS:
+            if SCANREFER_ENHANCE:
                 data["multi_ref_box_label_list"] = multi_ref_box_label_list
 
         else:

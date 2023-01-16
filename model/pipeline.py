@@ -503,7 +503,15 @@ class PipelineNet(pl.LightningModule):
             return candidates
 
         elif self.mode == 2:
+            print("1. ================================")
+            print(f"total mem: {torch.cuda.get_device_properties(0).total_memory / 1024 / 1024}")
+            print(f"reserved: {torch.cuda.memory_reserved(0) / 1024 / 1024}")
+            print(f"allocated: {torch.cuda.memory_allocated(0) / 1024 / 1024}")
             data_dict = self.detector.feed(data_dict, self.current_epoch)
+            print("2. ================================")
+            print(f"total mem: {torch.cuda.get_device_properties(0).total_memory / 1024 / 1024}")
+            print(f"reserved: {torch.cuda.memory_reserved(0) / 1024 / 1024}")
+            print(f"allocated: {torch.cuda.memory_allocated(0) / 1024 / 1024}")
 
             if not self.cfg.data.requires_gt_mask:
                 _, data_dict = self.detector.parse_feed_ret(data_dict)
