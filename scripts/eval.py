@@ -555,8 +555,8 @@ if __name__ == "__main__":
         eval_detection(cfg, dataloader["det"], model)
     elif args.task == "grounding":
         with torch.no_grad():
-            eval_grounding(cfg, dataset["val"], dataloader["val"], model)
+            eval_grounding(cfg, dataset[args.split], dataloader[args.split], model)
     elif args.task == "captioning":
-        eval_captioning(cfg, dataset["val"], dataloader["val"], model)
+        eval_captioning(cfg, dataset[args.split], dataloader[args.split], model)
         
 
