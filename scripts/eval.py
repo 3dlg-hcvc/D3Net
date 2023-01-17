@@ -55,16 +55,26 @@ def init_data(cfg, split="val"):
 
     raw_train = json.load(open(cfg["{}_PATH".format(cfg.general.dataset.upper())].train_split))
     raw_val = json.load(open(cfg["{}_PATH".format(cfg.general.dataset.upper())].val_split))
+    raw_test = json.load(open(cfg["{}_PATH".format(cfg.general.dataset.upper())].test_split))
 
     raw_train_scan_list = sorted(list(set([data["scene_id"] for data in raw_train])))
     raw_val_scan_list = sorted(list(set([data["scene_id"] for data in raw_val])))
+    raw_test_scan_list = sorted(list(set([data["scene_id"] for data in raw_test])))
+
     det_val_scan_list = sorted([line.rstrip() for line in open(cfg.SCANNETV2_PATH.val_list)])
+    det_test_scan_list = sorted([line.rstrip() for line in open(cfg.SCANNETV2_PATH.test_list)])
 
     det_val = []
+    det_test = []
     for scene_id in det_val_scan_list:
         data = deepcopy(raw_val[0])
         data["scene_id"] = scene_id
         det_val.append(data)
+
+    for scene_id in det_test_scan_list:
+        data = deepcopy(raw_test[0])
+        data["scene_id"] = scene_id
+        det_test.append(data)
 
     if cfg.general.task == "captioning":
         mode = "speaker"
@@ -82,10 +92,10 @@ def init_data(cfg, split="val"):
     print("=> loading train split...")
     cap_train_dataset = Dataset(cfg, cfg.general.dataset, mode, "train", raw_train, raw_train_scan_list, SCAN2CAD)
 
-    print("=> loading val split...")
+    print(f"=> loading {split} split...")
     cap_val_dataset = Dataset(cfg, cfg.general.dataset, mode, split, raw_val, raw_val_scan_list, SCAN2CAD)
     
-    print("=> loading val split for detection...")
+    print(f"=> loading {split} split for detection...")
     det_val_dataset = Dataset(cfg, cfg.general.dataset, mode, split, det_val, det_val_scan_list)
 
     print("=> loading complete")
@@ -94,18 +104,23 @@ def init_data(cfg, split="val"):
         shuffle=True, pin_memory=True, num_workers=cfg.data.num_workers, collate_fn=collate_fn)
     val_dataloader = DataLoader(cap_val_dataset, batch_size=cfg.data.batch_size, \
         shuffle=False, pin_memory=False, num_workers=cfg.data.num_workers, collate_fn=collate_fn)
+
     det_dataloader = DataLoader(det_val_dataset, batch_size=cfg.data.batch_size, \
         shuffle=False, pin_memory=False, num_workers=cfg.data.num_workers, collate_fn=collate_fn)
+
+
 
     dataset = {
         "train": cap_train_dataset,
         "val": cap_val_dataset,
+        "test": cap_val_dataset,
         "det": det_val_dataset
     }
 
     dataloader = {
         "train": train_dataloader,
         "val": val_dataloader,
+        "test": val_dataloader,
         "det": det_dataloader
     }
 
