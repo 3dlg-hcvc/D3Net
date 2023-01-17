@@ -91,59 +91,59 @@ class PipelineDataset(Dataset):
         data = {}
         data["id"] = np.array(idx).astype(np.int64)
 
-        if self.split != "test" and self.cfg.general.task != "test":
-            for i in range(self.chunk_size):
-                if i < actual_chunk_size:
-                    chunk_id = i
-                    object_id = self.chunked_data[idx][i]["object_id"]
-                    if SCANREFER_ENHANCE:
-                        object_ids = self.chunked_data[idx][i]["object_ids"]
-                    if object_id != "SYNTHETIC":
-                        annotated = 1
-                        object_id = int(object_id)
-                        object_name = " ".join(self.chunked_data[idx][i]["object_name"].split("_"))
-                        ann_id = self.chunked_data[idx][i]["ann_id"]
-                        object_cat = self.raw2label[object_name] if object_name in self.raw2label else 17
-                        
-                        # get language features
-                        lang_feat = deepcopy(self.lang[scene_id][str(object_id)][ann_id])
-                        lang_len = len(self.chunked_data[idx][i]["token"]) + 2
-                        lang_len = lang_len if lang_len <= self.max_des_len + 2 else self.max_des_len + 2
 
-                        # NOTE 50% chance that 20% of the tokens are erased during training
-                        if self.is_augment and random.random() < 0.5 and self.cfg.train.apply_word_erase:
-                            lang_feat = self._tranform_des_with_erase(lang_feat, lang_len, p=0.2)
-
-                        lang_ids = self.lang_ids[scene_id][str(object_id)][ann_id]
-                        unique_multiple_flag = self.unique_multiple_lookup[scene_id][str(object_id)][ann_id]
-                    else:
-                        annotated = 0
-                        object_id = -1
-                        object_name = ""
-                        ann_id = -1
-                        object_cat = 17 # will be changed in the model
-
-                        # synthesize language features
-                        lang_feat = np.zeros((self.max_des_len + 2, 300))
-                        lang_len = 0
-
-                        lang_ids = np.zeros(self.max_des_len + 2)
-                        unique_multiple_flag = 0
-
-                # store
-                # HACK the last sample will be repeated if chunk size 
-                # is smaller than num_des_per_scene
-                chunk_id_list[i] = chunk_id
-                object_id_list[i] = object_id
+        for i in range(self.chunk_size):
+            if i < actual_chunk_size:
+                chunk_id = i
+                object_id = self.chunked_data[idx][i]["object_id"]
                 if SCANREFER_ENHANCE:
-                    object_ids_list.append(object_ids)
-                ann_id_list[i] = ann_id
-                lang_feat_list[i] = lang_feat
-                lang_len_list[i] = lang_len
-                lang_id_list[i] = lang_ids
-                annotated_list[i] = annotated
-                unique_multiple_list[i] = unique_multiple_flag
-                object_cat_list[i] = object_cat
+                    object_ids = self.chunked_data[idx][i]["object_ids"]
+                if object_id != "SYNTHETIC":
+                    annotated = 1
+                    object_id = int(object_id)
+                    object_name = " ".join(self.chunked_data[idx][i]["object_name"].split("_"))
+                    ann_id = self.chunked_data[idx][i]["ann_id"]
+                    object_cat = self.raw2label[object_name] if object_name in self.raw2label else 17
+
+                    # get language features
+                    lang_feat = deepcopy(self.lang[scene_id][str(object_id)][ann_id])
+                    lang_len = len(self.chunked_data[idx][i]["token"]) + 2
+                    lang_len = lang_len if lang_len <= self.max_des_len + 2 else self.max_des_len + 2
+
+                    # NOTE 50% chance that 20% of the tokens are erased during training
+                    if self.is_augment and random.random() < 0.5 and self.cfg.train.apply_word_erase:
+                        lang_feat = self._tranform_des_with_erase(lang_feat, lang_len, p=0.2)
+
+                    lang_ids = self.lang_ids[scene_id][str(object_id)][ann_id]
+                    unique_multiple_flag = self.unique_multiple_lookup[scene_id][str(object_id)][ann_id]
+                else:
+                    annotated = 0
+                    object_id = -1
+                    object_name = ""
+                    ann_id = -1
+                    object_cat = 17 # will be changed in the model
+
+                    # synthesize language features
+                    lang_feat = np.zeros((self.max_des_len + 2, 300))
+                    lang_len = 0
+
+                    lang_ids = np.zeros(self.max_des_len + 2)
+                    unique_multiple_flag = 0
+
+            # store
+            # HACK the last sample will be repeated if chunk size
+            # is smaller than num_des_per_scene
+            chunk_id_list[i] = chunk_id
+            object_id_list[i] = object_id
+            if SCANREFER_ENHANCE:
+                object_ids_list.append(object_ids)
+            ann_id_list[i] = ann_id
+            lang_feat_list[i] = lang_feat
+            lang_len_list[i] = lang_len
+            lang_id_list[i] = lang_ids
+            annotated_list[i] = annotated
+            unique_multiple_list[i] = unique_multiple_flag
+            object_cat_list[i] = object_cat
 
             if not self.use_gt:
                 instance_ids = scene["instance_ids"]
@@ -805,10 +805,9 @@ class PipelineDataset(Dataset):
             if pid not in self.multiview_data:
                 self.multiview_data[pid] = h5py.File(self.cfg.SCANNETV2_PATH.multiview_features, "r", libver="latest")
 
-            try:
-                multiview = self.multiview_data[pid][scene_id][()]
-            except KeyError:
-                multiview = np.zeros((data.shape[0], 128)) # placeholder
+
+            multiview = self.multiview_data[pid][scene_id][()]
+
             if choices is not None:
                 multiview = multiview[choices]
             data = np.concatenate([data, multiview], 1)
