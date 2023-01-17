@@ -93,10 +93,16 @@ def init_data(cfg, split="val"):
     cap_train_dataset = Dataset(cfg, cfg.general.dataset, mode, "train", raw_train, raw_train_scan_list, SCAN2CAD)
 
     print(f"=> loading {split} split...")
-    cap_val_dataset = Dataset(cfg, cfg.general.dataset, mode, split, raw_val, raw_val_scan_list, SCAN2CAD)
+    if split == "val":
+        cap_val_dataset = Dataset(cfg, cfg.general.dataset, mode, split, raw_val, raw_val_scan_list, SCAN2CAD)
+    else:
+        cap_val_dataset = Dataset(cfg, cfg.general.dataset, mode, split, raw_test, raw_test_scan_list, SCAN2CAD)
     
     print(f"=> loading {split} split for detection...")
-    det_val_dataset = Dataset(cfg, cfg.general.dataset, mode, split, det_val, det_val_scan_list)
+    if split == "val":
+        det_val_dataset = Dataset(cfg, cfg.general.dataset, mode, split, det_val, det_val_scan_list)
+    else:
+        det_val_dataset = Dataset(cfg, cfg.general.dataset, mode, split, det_test, det_test_scan_list)
 
     print("=> loading complete")
 
