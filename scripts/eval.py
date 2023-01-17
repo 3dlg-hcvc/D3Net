@@ -236,7 +236,7 @@ def eval_grounding(cfg, dataset, dataloader, model):
                     if isinstance(data_dict[key], list): continue
                     data_dict[key] = data_dict[key].cuda()
 
-                # torch.cuda.empty_cache()
+                torch.cuda.empty_cache()
 
                 # feed
                 data_dict = model.detector.feed(data_dict)
