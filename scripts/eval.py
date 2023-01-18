@@ -567,6 +567,7 @@ if __name__ == "__main__":
     SCANREFER_ENHANCE_VANILLE = args.vanilla
     SCANREFER_ENHANCE_LOSS_THRESHOLD = args.loss
     SCANREFER_ENHANCE_EVAL_THRESHOLD = args.eval
+    EVAL_SAVE_NAME = f"{'vanilla' if SCANREFER_ENHANCE_VANILLE else 'hungarian'}_{SCANREFER_ENHANCE_LOSS_THRESHOLD}_pred_thre_{SCANREFER_ENHANCE_EVAL_THRESHOLD}"
 
     print("=> loading configurations...")
     cfg = load_conf(args)
