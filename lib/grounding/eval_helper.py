@@ -121,7 +121,7 @@ def get_eval(data_dict, grounding=True, use_lang_classifier=False, final_output=
         multi_pred_bboxes = []
         multi_pred_ref_idxs = pred_ref_mul_obj_mask[i].nonzero()
         for idx in multi_pred_ref_idxs:
-            multi_pred_bboxes.append(pred_bbox_corners[i, idx])
+            multi_pred_bboxes.append(pred_bbox_corners[i, idx][0])
         output_info = {
             "object_id": data_dict["object_id"].flatten()[i].item(),
             "ann_id": data_dict["ann_id"].flatten()[i].item(),
