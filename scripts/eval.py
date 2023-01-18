@@ -560,7 +560,13 @@ if __name__ == "__main__":
                         help="path to config file")
     parser.add_argument("-t", "--task", type=str, choices=["detection", "grounding", "captioning"], \
         help="specify task: detection | grounding | captioning", required=True)
+    parser.add_argument("--vanilla", action="store_true", default=False)
+    parser.add_argument("--loss", default=0.5)
+    parser.add_argument("--eval", default=0.1)
     args = parser.parse_args()
+    SCANREFER_ENHANCE_VANILLE = args.vanilla
+    SCANREFER_ENHANCE_LOSS_THRESHOLD = args.loss
+    SCANREFER_ENHANCE_EVAL_THRESHOLD = args.eval
 
     print("=> loading configurations...")
     cfg = load_conf(args)
