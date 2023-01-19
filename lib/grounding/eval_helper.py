@@ -132,7 +132,7 @@ def get_eval(data_dict, grounding=True, use_lang_classifier=False, final_output=
         scene_id = data_dict["scene_id"][i // data_dict["chunk_ids"].shape[1]]
         key = (scene_id, output_info["object_id"], output_info["ann_id"])
         if final_output is not None and key not in mem_hash:
-            final_output[scene_id].append(output_info)
+            final_output[scene_id].append(output_info.cpu().numpy())
         mem_hash[key] = True
         # end
 

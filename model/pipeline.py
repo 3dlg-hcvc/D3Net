@@ -748,7 +748,6 @@ class PipelineNet(pl.LightningModule):
                 all_gts = {}
                 for key, value in self.final_output.items():
                     for query in value:
-                        query["aabbs"] = query["aabbs"].cpu().numpy()
                         all_preds[(key, int(query["object_id"]), int(query["ann_id"]))] = query
                     #os.makedirs(EVAL_SAVE_NAME, exist_ok=True)
                     # with open(f"{EVAL_SAVE_NAME}/{key}.json", "w") as f:
