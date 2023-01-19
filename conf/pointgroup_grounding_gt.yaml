@@ -7,7 +7,7 @@ general:
   config: conf/pointgroup_scannet.yaml
   output_root: outputs/
   experiment: pointgroup_grounding_gt_vanilla_0.5 # TODO
-  monitor: val_score/ref_iou_rate_0.5
+  monitor: val_score/multi3drefer_0.5
   monitor_mode: max
 
 

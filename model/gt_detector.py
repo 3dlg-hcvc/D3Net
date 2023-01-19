@@ -92,8 +92,7 @@ class GTDetector(pl.LightningModule):
             data_dict["proposal_feats_batched"][b, :pred_num, :] = data_dict["proposal_feats"][proposal_batch_idx][
                                                                    :pred_num]
             data_dict["proposal_bbox_batched"][b, :pred_num, :, :] = proposal_bbox_tensor[proposal_batch_idx][:pred_num]
-            data_dict["proposal_center_batched"][b, :pred_num, :] = data_dict["proposal_crop_bbox"][proposal_batch_idx,
-                                                                    :3][:pred_num]
+            data_dict["proposal_center_batched"][b, :pred_num, :] = data_dict["proposal_crop_bbox"][proposal_batch_idx, :3][:pred_num]
             data_dict["proposal_sem_cls_batched"][b, :pred_num] = data_dict["proposal_crop_bbox"][
                                                                       proposal_batch_idx, 7][:pred_num]
             data_dict["proposal_scores_batched"][b, :pred_num] = data_dict["proposal_objectness_scores"][

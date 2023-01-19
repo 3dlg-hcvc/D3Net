@@ -956,7 +956,7 @@ def sparse_collate_fn(batch):
         if len(gt_proposals_idx) > 0:
             data["gt_proposals_idx"] = torch.cat(gt_proposals_idx, 0).to(torch.int32)
             data["gt_proposals_offset"] = torch.cat(gt_proposals_offset, 0).to(torch.int32)
-            data["instances_bboxes_tmp"] = torch.cat(instances_bboxes_tmp, 0).to(torch.int32)
+            data["instances_bboxes_tmp"] = torch.cat(instances_bboxes_tmp, 0).to(torch.float32)
         # print("raw data collated.")
 
         ### voxelize

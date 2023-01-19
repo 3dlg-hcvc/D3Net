@@ -280,7 +280,7 @@ class PointGroup(pl.LightningModule):
             #### get prooposal clusters
             batch_idxs = data_dict["locs_scaled"][:, 0].int()
             
-            if USE_GT:
+            if not USE_GT:
                 object_idxs = torch.nonzero(semantic_preds > 0, as_tuple=False).view(-1)
                 batch_idxs_ = batch_idxs[object_idxs]
                 batch_offsets_ = self.get_batch_offsets(batch_idxs_, batch_size)
