@@ -123,7 +123,7 @@ def get_eval(data_dict, grounding=True, use_lang_classifier=False, final_output=
         multi_pred_bboxes = []
         multi_pred_ref_idxs = pred_ref_mul_obj_mask[i].nonzero()
         for idx in multi_pred_ref_idxs:
-            multi_pred_bboxes.append(pred_bbox_corners[i, idx][0])
+            multi_pred_bboxes.append(pred_bbox_corners[i, idx][0].cpu().numpy())
         output_info = {
             "object_id": data_dict["object_id"].flatten()[i].item(),
             "ann_id": data_dict["ann_id"].flatten()[i].item(),
@@ -132,7 +132,7 @@ def get_eval(data_dict, grounding=True, use_lang_classifier=False, final_output=
         scene_id = data_dict["scene_id"][i // data_dict["chunk_ids"].shape[1]]
         key = (scene_id, output_info["object_id"], output_info["ann_id"])
         if final_output is not None and key not in mem_hash:
-            final_output[scene_id].append(output_info.cpu().numpy())
+            final_output[scene_id].append(output_info)
         mem_hash[key] = True
         # end
 
