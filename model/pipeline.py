@@ -748,12 +748,12 @@ class PipelineNet(pl.LightningModule):
                 all_gts = {}
                 for key, value in self.final_output.items():
                     for query in value:
-                        # query["aabbs"] = [item.tolist() for item in query["aabbs"]]
+                        query["aabbs"] = query["aabbs"].cpu().numpy()
                         all_preds[(key, int(query["object_id"]), int(query["ann_id"]))] = query
                     #os.makedirs(EVAL_SAVE_NAME, exist_ok=True)
                     # with open(f"{EVAL_SAVE_NAME}/{key}.json", "w") as f:
                     #     json.dump(value, f)
-                    with open(os.path.join("3dvg_gt", key), 'r') as f:
+                    with open(os.path.join("/home/yza440/Research/D3Net/3dvg_gt", key + ".json"), 'r') as f:
                         gt_json = json.load(f)
                     for query in gt_json:
                         all_gts[(key, int(query["object_id"]), int(query["ann_id"]))] = query
