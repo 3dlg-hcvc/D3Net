@@ -81,7 +81,7 @@ class PipelineDataset(Dataset):
 
         # prepare scene data
         scene = self.scenes[scene_id]
-        if self.cfg.data.requires_gt_mask:
+        if USE_GT:
             points, feats = self._get_coord_and_feat_from_mesh(scene["aligned_mesh"], scene_id, scene["choices"])
         else:
             points, feats = self._get_coord_and_feat_from_mesh(scene["aligned_mesh"], scene_id)
@@ -181,7 +181,7 @@ class PipelineDataset(Dataset):
              size_classes, size_residuals, bbox_label) = self._getInstanceInfo(points_augment, instance_ids,
                                                                                sem_labels)
 
-            if self.cfg.data.requires_gt_mask:
+            if USE_GT:
                 gt_proposals_idx, gt_proposals_offset, _, instances_bboxes_tmp = self._generate_gt_clusters(
                     points_augment, instance_ids)
 

@@ -1,4 +1,4 @@
-
+import os, json
 import torch
 import random
 import numpy as np
@@ -8,12 +8,14 @@ from model.pointgroup import PointGroup
 from model.gt_detector import GTDetector
 from model.speaker import SpeakerNet
 from model.listener import ListenerNet
+from lib.grounding.eval_helper import get_eval
 
 from lib.det.ap_helper import APCalculator
 from lib.captioning.loss_helper import get_loss as get_captioning_loss
 from lib.captioning.eval_helper import eval_caption_step, eval_caption_epoch
 from lib.grounding.loss_helper import get_loss as get_grounding_loss
-
+from lib.utils.eval_helper_multi3drefer import *
+from macro import *
 
 class PipelineNet(pl.LightningModule):
     def __init__(self, cfg, dataset=None):
@@ -53,7 +55,7 @@ class PipelineNet(pl.LightningModule):
                 "caption_reward_weight": self.cfg.train.caption_reward_weight,
             }
 
-        if cfg.data.requires_gt_mask and not self.no_detection:
+        if USE_GT and not self.no_detection:
             self.detector = GTDetector(cfg)
         elif not self.no_detection:
             self.detector = PointGroup(cfg)
@@ -71,6 +73,9 @@ class PipelineNet(pl.LightningModule):
         self.num_proposal = cfg.model.max_num_proposal
 
         self.use_lang_classifier = cfg.model.use_lang_classifier
+
+        self.final_output = {}
+        self.mem_hash = {}
 
         self.post_dict = {
             "remove_empty_box": False, 
@@ -184,7 +189,7 @@ class PipelineNet(pl.LightningModule):
             # forward pass
             data_dict = self.detector.feed(data_dict, self.current_epoch)
 
-            if not self.cfg.data.requires_gt_mask:
+            if not USE_GT:
                 _, data_dict = self.detector.parse_feed_ret(data_dict)
                 data_dict = self.detector.loss(data_dict, self.current_epoch)
             data_dict = self.listener(data_dict)
@@ -197,13 +202,13 @@ class PipelineNet(pl.LightningModule):
                 use_rl=False
             )
 
-            if not self.cfg.data.requires_gt_mask:
+            if not USE_GT:
                 loss = data_dict["total_loss"][0] + data_dict["ref_loss"] + data_dict["lang_loss"]
             else:
                 loss = data_dict["ref_loss"] + data_dict["lang_loss"]
 
             # unpack
-            if not self.cfg.data.requires_gt_mask:
+            if not USE_GT:
                 log_dict = {
                     "loss": loss,
 
@@ -472,6 +477,11 @@ class PipelineNet(pl.LightningModule):
 
         return loss
 
+    def on_validation_start(self) -> None:
+        self.final_output = {}
+        self.mem_hash = {}
+
+
     def validation_step(self, data_dict, idx, dataloader_idx=0):
         if self.global_step % self.cfg.model.clear_cache_steps == 0:
             torch.cuda.empty_cache()
@@ -513,7 +523,7 @@ class PipelineNet(pl.LightningModule):
             print(f"reserved: {torch.cuda.memory_reserved(0) / 1024 / 1024}")
             print(f"allocated: {torch.cuda.memory_allocated(0) / 1024 / 1024}")
 
-            if not self.cfg.data.requires_gt_mask:
+            if not USE_GT:
                 _, data_dict = self.detector.parse_feed_ret(data_dict)
                 data_dict = self.detector.loss(data_dict, self.current_epoch)
 
@@ -525,6 +535,26 @@ class PipelineNet(pl.LightningModule):
                 grounding=not self.no_grounding,
                 use_lang_classifier=self.use_lang_classifier,
                 use_rl=False
+            )
+
+            if SCANREFER_ENHANCE:
+                for scene_id in data_dict["scene_id"]:
+                    if scene_id not in self.final_output:
+                        self.final_output[scene_id] = []
+
+            # scanrefer++ support
+            if SCANREFER_ENHANCE:
+                for scene_id in data_dict["scene_id"]:
+                    if scene_id not in self.final_output:
+                        self.final_output[scene_id] = []
+
+            _ = get_eval(
+                data_dict,
+                grounding=True,
+                use_lang_classifier=True,
+                final_output=self.final_output,  # scanrefer++ support
+                mem_hash=self.mem_hash,
+                dont_save=True # scanrefer++ support
             )
 
             log_dict = {
@@ -542,6 +572,8 @@ class PipelineNet(pl.LightningModule):
             for key, value in log_dict.items():
                 ctg = "loss" if "loss" in key else "score"
                 self.log("val_{}/{}".format(ctg, key), value, prog_bar=False, on_step=False, on_epoch=True, sync_dist=True)
+
+
 
         elif self.mode == 3:
             data_dict = self.detector.feed(data_dict, self.current_epoch)
@@ -710,7 +742,29 @@ class PipelineNet(pl.LightningModule):
                 self.log("val_score/{}".format(key), value, prog_bar=False, on_step=False, on_epoch=True, sync_dist=True)
 
         elif self.mode == 2 or self.mode == 5:
-            pass
+            if SCANREFER_ENHANCE:
+                # scanrefer+= support
+                all_preds = {}
+                all_gts = {}
+                for key, value in self.final_output.items():
+                    for query in value:
+                        # query["aabbs"] = [item.tolist() for item in query["aabbs"]]
+                        all_preds[(key, int(query["object_id"]), int(query["ann_id"]))] = query
+                    #os.makedirs(EVAL_SAVE_NAME, exist_ok=True)
+                    # with open(f"{EVAL_SAVE_NAME}/{key}.json", "w") as f:
+                    #     json.dump(value, f)
+                    with open(os.path.join("3dvg_gt", key), 'r') as f:
+                        gt_json = json.load(f)
+                    for query in gt_json:
+                        all_gts[(key, int(query["object_id"]), int(query["ann_id"]))] = query
+                iou_25_results, iou_50_results = evaluate_all_scenes(all_preds, all_gts)
+
+                self.log("val_score/multi3drefer_0.25", iou_25_results["overall"], prog_bar=False, on_step=False, on_epoch=True, sync_dist=True)
+                self.log("val_score/multi3drefer_0.5", iou_50_results["overall"], prog_bar=False, on_step=False,
+                         on_epoch=True, sync_dist=True)
+
+                self.final_output = {}
+                self.mem_hash = {}
 
         elif self.mode == 3 or self.mode == 6:
             # aggregate captioning outputs

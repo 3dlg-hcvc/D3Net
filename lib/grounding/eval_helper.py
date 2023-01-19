@@ -24,7 +24,7 @@ def eval_ref_one_sample(pred_bbox, gt_bbox):
 
     return iou
 
-def get_eval(data_dict, grounding=True, use_lang_classifier=False, final_output=None, mem_hash=None):
+def get_eval(data_dict, grounding=True, use_lang_classifier=False, final_output=None, mem_hash=None, dont_save=False):
     """ Loss functions
 
     Args:
@@ -61,8 +61,9 @@ def get_eval(data_dict, grounding=True, use_lang_classifier=False, final_output=
     ref_acc = corrects / (labels + 1e-8)
     
     # store
-    data_dict["ref_acc"] = ref_acc.cpu().numpy().tolist()
-    data_dict["ref_acc_mean"] = ref_acc.mean()
+    if dont_save:
+        data_dict["ref_acc"] = ref_acc.cpu().numpy().tolist()
+        data_dict["ref_acc_mean"] = ref_acc.mean()
 
     # compute localization metrics
     pred_ref = torch.argmax(data_dict["cluster_ref"] * pred_masks, 1) # (B,)
@@ -74,7 +75,8 @@ def get_eval(data_dict, grounding=True, use_lang_classifier=False, final_output=
     # end
 
     # store the calibrated predictions and masks
-    data_dict["cluster_ref"] = data_dict["cluster_ref"] * pred_masks
+    if dont_save:
+        data_dict["cluster_ref"] = data_dict["cluster_ref"] * pred_masks
 
     pred_bbox_corners = data_dict["proposal_bbox_batched"] # (B, num_proposal, 8, 3)
 
@@ -135,26 +137,27 @@ def get_eval(data_dict, grounding=True, use_lang_classifier=False, final_output=
         # end
 
     # lang
-    if grounding and use_lang_classifier:
-        data_dict["lang_acc"] = (torch.argmax(data_dict["lang_scores"], 1) == object_cat_labels).float().mean()
-    else:
-        data_dict["lang_acc"] = torch.zeros(1)[0].type_as(cluster_preds)
+    if dont_save:
+        if grounding and use_lang_classifier:
+            data_dict["lang_acc"] = (torch.argmax(data_dict["lang_scores"], 1) == object_cat_labels).float().mean()
+        else:
+            data_dict["lang_acc"] = torch.zeros(1)[0].type_as(cluster_preds)
 
-    ious = torch.tensor(ious).type_as(cluster_preds)
-    best_ious = torch.tensor(best_ious).type_as(cluster_preds)
-    pred_bboxes = torch.cat(pred_bboxes, dim=0)
-    gt_bboxes = torch.cat(gt_bboxes, dim=0)
+        ious = torch.tensor(ious).type_as(cluster_preds)
+        best_ious = torch.tensor(best_ious).type_as(cluster_preds)
+        pred_bboxes = torch.cat(pred_bboxes, dim=0)
+        gt_bboxes = torch.cat(gt_bboxes, dim=0)
 
-    # store
-    data_dict["ref_iou"] = ious
-    data_dict["best_ious"] = best_ious
-    data_dict["ref_iou_mean"] = ious.mean()
-    data_dict["best_ious_mean"] = best_ious.mean()
-    data_dict["ref_iou_rate_0.25"] = ious[ious >= 0.25].shape[0] / ious.shape[0]
-    data_dict["ref_iou_rate_0.5"] = ious[ious >= 0.5].shape[0] / ious.shape[0]
-    data_dict["ref_multiple_mask"] = multiple
-    data_dict["ref_others_mask"] = others
-    data_dict["pred_bboxes"] = pred_bboxes
-    data_dict["gt_bboxes"] = gt_bboxes
+        # store
+        data_dict["ref_iou"] = ious
+        data_dict["best_ious"] = best_ious
+        data_dict["ref_iou_mean"] = ious.mean()
+        data_dict["best_ious_mean"] = best_ious.mean()
+        data_dict["ref_iou_rate_0.25"] = ious[ious >= 0.25].shape[0] / ious.shape[0]
+        data_dict["ref_iou_rate_0.5"] = ious[ious >= 0.5].shape[0] / ious.shape[0]
+        data_dict["ref_multiple_mask"] = multiple
+        data_dict["ref_others_mask"] = others
+        data_dict["pred_bboxes"] = pred_bboxes
+        data_dict["gt_bboxes"] = gt_bboxes
 
-    return data_dict
+        return data_dict

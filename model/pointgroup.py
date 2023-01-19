@@ -16,7 +16,7 @@ from lib.utils.bbox import get_3d_box_batch
 from lib.utils.nn_distance import nn_distance
 
 from model.common import ResidualBlock, VGGBlock, UBlock
-
+from macro import *
 
 class PointGroup(pl.LightningModule):
     def __init__(self, cfg):
@@ -280,7 +280,7 @@ class PointGroup(pl.LightningModule):
             #### get prooposal clusters
             batch_idxs = data_dict["locs_scaled"][:, 0].int()
             
-            if not self.requires_gt_mask:
+            if USE_GT:
                 object_idxs = torch.nonzero(semantic_preds > 0, as_tuple=False).view(-1)
                 batch_idxs_ = batch_idxs[object_idxs]
                 batch_offsets_ = self.get_batch_offsets(batch_idxs_, batch_size)
