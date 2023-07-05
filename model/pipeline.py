@@ -138,6 +138,7 @@ class PipelineNet(pl.LightningModule):
         if self.global_step % self.cfg.model.clear_cache_steps == 0:
             torch.cuda.empty_cache()
 
+        data_dict = self.detector.feed(data_dict, self.current_epoch)
         if not USE_GT:
             _, data_dict = self.detector.parse_feed_ret(data_dict)
             data_dict = self.detector.loss(data_dict, self.current_epoch)

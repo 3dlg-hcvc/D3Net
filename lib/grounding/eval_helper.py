@@ -111,8 +111,9 @@ def get_eval(data_dict, grounding=True, use_lang_classifier=False, final_output=
         gt_bboxes.append(gt_bbox.unsqueeze(0))
 
         # construct the multiple mask
-        unique_multiple_labels = data_dict["unique_multiple"].reshape(-1)
-        multiple.append(unique_multiple_labels[i].item())
+        # unique_multiple_labels = data_dict["unique_multiple"].reshape(-1)
+        # multiple.append(data_dict["unique_multiple"][i].item())
+        multiple.append(data_dict["unique_multiple"][i])
 
         # construct the others mask
         object_cat_labels = data_dict["object_cat"].reshape(-1)

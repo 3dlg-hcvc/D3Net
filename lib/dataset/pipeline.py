@@ -71,7 +71,8 @@ class PipelineDataset(Dataset):
         lang_len_list = np.zeros((self.chunk_size))
         lang_id_list = np.zeros((self.chunk_size, self.max_des_len + 2))
         annotated_list = np.zeros((self.chunk_size))
-        unique_multiple_list = np.zeros((self.chunk_size))
+        # unique_multiple_list = np.zeros((self.chunk_size))
+        unique_multiple_list = []
         object_cat_list = np.zeros((self.chunk_size))
         object_ids_list = []
         actual_chunk_size = len(self.chunked_data[idx])
@@ -124,7 +125,8 @@ class PipelineDataset(Dataset):
             lang_len_list[i] = lang_len
             lang_id_list[i] = lang_ids
             annotated_list[i] = annotated
-            unique_multiple_list[i] = unique_multiple_flag
+            # unique_multiple_list[i] = unique_multiple_flag
+            unique_multiple_list.append(unique_multiple_flag)
             object_cat_list[i] = object_cat
 
 
@@ -236,7 +238,8 @@ class PipelineDataset(Dataset):
         data["object_id"] = np.array(object_id_list).astype(np.int64)
         data["ann_id"] = np.array(ann_id_list).astype(np.int64)
         data["object_cat"] = np.array(object_cat_list).astype(np.int64)
-        data["unique_multiple"] = np.array(unique_multiple_list).astype(np.int64)
+        # data["unique_multiple"] = np.array(unique_multiple_list).astype(np.int64)
+        data["unique_multiple"] = unique_multiple_list
 
         # rotation
         data["scene_object_ids"] = instance_bbox_ids.astype(np.int64)  # (MAX_NUM_OBJ,) object ids of all objects
