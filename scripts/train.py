@@ -16,7 +16,7 @@ from copy import deepcopy
 from omegaconf import OmegaConf
 from importlib import import_module
 
-from pytorch_lightning.plugins import DDPPlugin
+# from pytorch_lightning.plugins import DDPPlugin
 
 from torch.utils.data.dataloader import DataLoader
 
@@ -265,8 +265,8 @@ def init_monitor(cfg):
 
 def init_trainer(cfg):
     trainer = pl.Trainer(
-        gpus=-1, # use all available GPUs 
-        strategy="ddp_find_unused_parameters_false",
+        # gpus=-1, # use all available GPUs
+        # strategy="ddp_find_unused_parameters_false",
         accelerator="gpu", # use multiple GPUs on the same machine
         max_epochs=cfg.train.epochs, 
         num_sanity_val_steps=cfg.train.num_sanity_val_steps, # validate on all val data before training 

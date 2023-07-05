@@ -135,7 +135,7 @@ train:
   beam_size: 3
   sample_topn: 3
 
-  use_rl: True
+  use_rl: False
   ref_reward_weight: 1
   lang_reward_weight: 0
   listener_reward_weight: 0.1

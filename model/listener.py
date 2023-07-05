@@ -4,7 +4,7 @@ import sys
 import torch.nn as nn
 
 from model.lang_module import LangModule
-from model.match_module import MatchModule, TransformerMatchModule
+from model.match_module import TransformerMatchModule
 
 
 class ListenerNet(nn.Module):
