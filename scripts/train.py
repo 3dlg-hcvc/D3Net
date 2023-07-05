@@ -123,11 +123,9 @@ def init_trainer(cfg):
 
     return trainer
 
-def init_model(cfg, dataset):
+def init_model(cfg):
     PipelineNet = getattr(import_module("model.pipeline"), "PipelineNet")
     model = PipelineNet(cfg)
-
-    print("=> current mode: {}...".format(model.mode))
 
     if cfg.model.pretrained_detector and not cfg.model.no_detection and not cfg.model.use_checkpoint:
         device_name = "cuda:{}".format(os.environ.get("LOCAL_RANK", 0))
@@ -158,7 +156,6 @@ def init_model(cfg, dataset):
     return model
 
 def start_training(trainer, model, dataloaders):
-    print("=> train with MODE: {}".format(model.mode))
 
     if cfg.model.use_checkpoint:
         print("=> configuring trainer with checkpoint from {} ...".format(cfg.model.use_checkpoint))
@@ -188,7 +185,7 @@ if __name__ == "__main__":
     datasets, dataloaders = init_data(cfg)
 
     print("=> initializing model...")
-    model = init_model(cfg, datasets)
+    model = init_model(cfg)
 
     print("=> initializing logger...")
     logger = init_logger(cfg)
