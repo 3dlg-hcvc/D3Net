@@ -22,10 +22,8 @@ class ListenerNet(nn.Module):
 
         # --------- PROPOSAL MATCHING ---------
         # Match the generated proposals and select the most confident ones
-        if self.match_type == "ScanRefer":
-            # # ********* ScanRefer Matching *********
-            self.match = MatchModule(cfg)
-        elif self.match_type == "Transformer":
+
+        if self.match_type == "Transformer":
             # # ********* Transformer Matching *********
             self.match = TransformerMatchModule(cfg)
         else:

@@ -101,7 +101,8 @@ def init_speaker_data(cfg):
     Dataset = getattr(DATA_MODULE, cfg.data.dataset)
     collate_fn = getattr(DATA_MODULE, "sparse_collate_fn")
 
-    SCAN2CAD = json.load(open(os.path.join(cfg.SCAN2CAD, "scannet_instance_rotations.json")))
+    # SCAN2CAD = json.load(open(os.path.join(cfg.SCAN2CAD, "scannet_instance_rotations.json")))
+    SCAN2CAD = None
 
     raw_train = json.load(open(cfg["{}_PATH".format(cfg.general.dataset.upper())].train_split))
     raw_val = json.load(open(cfg["{}_PATH".format(cfg.general.dataset.upper())].val_split))
@@ -178,8 +179,8 @@ def init_listener_data(cfg):
     Dataset = getattr(DATA_MODULE, cfg.data.dataset)
     collate_fn = getattr(DATA_MODULE, "sparse_collate_fn")
 
-    SCAN2CAD = json.load(open(os.path.join(cfg.SCAN2CAD, "scannet_instance_rotations.json")))
-
+    # SCAN2CAD = json.load(open(os.path.join(cfg.SCAN2CAD, "scannet_instance_rotations.json")))
+    SCAN2CAD = None
     raw_train = json.load(open(cfg["{}_PATH".format(cfg.general.dataset.upper())].train_split))
     raw_val = json.load(open(cfg["{}_PATH".format(cfg.general.dataset.upper())].val_split))
 
@@ -251,14 +252,12 @@ def init_logger(cfg):
 
 def init_monitor(cfg):
     monitor = pl.callbacks.ModelCheckpoint(
-        # monitor="{}".format(cfg.general.monitor),
+        monitor="{}".format(cfg.general.monitor),
         mode="{}".format(cfg.general.monitor_mode),
         # save_weights_only=True,
         dirpath=cfg.general.root,
         filename="model",
-        save_last=True,
-        save_top_k=-1,
-        every_n_epochs=2
+        save_last=True
     )
 
     return monitor
@@ -287,7 +286,7 @@ def init_model(cfg, dataset):
 
     print("=> current mode: {}...".format(model.mode))
 
-    if cfg.model.pretrained_detector and not cfg.model.no_detection and not cfg.model.use_checkpoint and not cfg.data.requires_gt_mask:
+    if cfg.model.pretrained_detector and not cfg.model.no_detection and not cfg.model.use_checkpoint:
         device_name = "cuda:{}".format(os.environ.get("LOCAL_RANK", 0))
 
         print("=> loading pretrained detector to {} ...".format(device_name))
@@ -342,28 +341,28 @@ def start_training(trainer, model, dataloaders):
             model=model, 
             train_dataloaders=dataloaders["det"]["train"], 
             val_dataloaders=dataloaders["det"]["val"],
-            ckpt_path=checkpoint,
+            ckpt_path=checkpoint
         )
     elif model.mode == 1 or model.mode == 4:
         trainer.fit(
             model=model, 
             train_dataloaders=dataloaders["spk"]["train"], 
             val_dataloaders=dataloaders["spk"]["val"],
-            ckpt_path=checkpoint,
+            ckpt_path=checkpoint
         )
     elif model.mode == 2 or model.mode == 5:
         trainer.fit(
             model=model, 
             train_dataloaders=dataloaders["lis"]["train"], 
             val_dataloaders=dataloaders["lis"]["val"],
-            ckpt_path=checkpoint,
+            ckpt_path=checkpoint
         )
     elif model.mode == 3 or model.mode == 6:
         trainer.fit(
             model=model, 
             train_dataloaders=[dataloaders["spk"]["train"], dataloaders["lis"]["train"]], 
             val_dataloaders=[dataloaders["spk"]["val"], dataloaders["lis"]["val"]],
-            ckpt_path=checkpoint,
+            ckpt_path=checkpoint
         )
 
 

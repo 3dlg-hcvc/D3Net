@@ -1,2 +1,0 @@
-from .semantic_segmentation import evaluate_semantic
-from .instance_segmentation import evaluate_instance

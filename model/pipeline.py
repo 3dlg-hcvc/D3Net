@@ -6,7 +6,6 @@ import pytorch_lightning as pl
 from data.scannet.model_util_scannet_d3net import ScannetDatasetConfig
 from model.pointgroup import PointGroup
 from model.gt_detector import GTDetector
-from model.speaker import SpeakerNet
 from model.listener import ListenerNet
 from lib.grounding.eval_helper import get_eval
 

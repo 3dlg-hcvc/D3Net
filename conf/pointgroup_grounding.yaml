@@ -28,7 +28,7 @@ data:
 
   scale: 50   # voxel_size = 1 / scale, scale 50(2cm)
   batch_size: 4
-  num_workers: 4
+  num_workers: 8
   full_scale: [128, 512]
   max_num_point: 250000
   max_num_instance: 128
@@ -112,7 +112,7 @@ train:
   epochs: 50
   num_sanity_val_steps: 3
   log_every_n_steps: 30
-  check_val_every_n_epoch: 5
+  check_val_every_n_epoch: 2
 
   optim: 
     classname: AdamW # Adam or SGD

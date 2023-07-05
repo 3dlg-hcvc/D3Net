@@ -26,7 +26,6 @@ from lib.utils.bbox import get_3d_box, get_3d_box_batch
 from macro import *
 MEAN_COLOR_RGB = np.array([109.8, 97.2, 83.8])
 
-
 class PipelineDataset(Dataset):
 
     def __init__(self, cfg, name, mode, split, raw_data, scan_list, scan2cad_rotation=None, is_augment=False):
@@ -81,10 +80,7 @@ class PipelineDataset(Dataset):
 
         # prepare scene data
         scene = self.scenes[scene_id]
-        if USE_GT:
-            points, feats = self._get_coord_and_feat_from_mesh(scene["aligned_mesh"], scene_id, scene["choices"])
-        else:
-            points, feats = self._get_coord_and_feat_from_mesh(scene["aligned_mesh"], scene_id)
+        points, feats = self._get_coord_and_feat_from_mesh(scene["aligned_mesh"], scene_id)
 
         # print("point data loaded.")
         # store to dict
@@ -346,8 +342,8 @@ class PipelineDataset(Dataset):
     def _load(self):
         # loading preprocessed scene data
         if not self.use_gt:
-            self.scenes = {scene_id: torch.load(os.path.join(self.root, self.split, scene_id + self.file_suffix))
-                           for scene_id in tqdm(self.scan_list)}
+            self.scenes = {scene_id: torch.load(os.path.join(self.root, self.split, scene_id+self.file_suffix))
+                for scene_id in tqdm(self.scan_list)}
 
         # load language features
         self.vocabulary, self.glove = self._build_vocabulary()
@@ -415,12 +411,12 @@ class PipelineDataset(Dataset):
                 train_data = [d for d in self.raw_data if d["object_id"] != "SYNTHETIC"]
                 all_words = chain(*[data["token"][:self.max_des_len] for data in train_data])
                 word_counter = Counter(all_words)
-                word_counter = sorted([(k, v) for k, v in word_counter.items() if k in glove], key=lambda x: x[1],
-                                      reverse=True)
+                word_counter = sorted([(k, v) for k, v in word_counter.items() if k in glove], key=lambda x: x[1], reverse=True)
                 word_list = [k for k, _ in word_counter]
+
                 # build vocabulary
                 word2idx, idx2word = {}, {}
-                spw = ["pad_", "unk", "sos", "eos"]  # NOTE distinguish padding token "pad_" and the actual word "pad"
+                spw = ["pad_", "unk", "sos", "eos"] # NOTE distinguish padding token "pad_" and the actual word "pad"
                 for i, w in enumerate(word_list):
                     shifted_i = i + len(spw)
                     word2idx[w] = shifted_i
@@ -443,6 +439,7 @@ class PipelineDataset(Dataset):
                     "special_tokens": speical_tokens
                 }
                 json.dump(vocabulary, open(vocab_path, "w"), indent=4)
+
 
         emb_mat_path = self.cfg["{}_PATH".format(self.name.upper())].glove_numpy
         if os.path.exists(emb_mat_path):
@@ -491,7 +488,7 @@ class PipelineDataset(Dataset):
                 # tokenize the description
                 tokens = ["sos"] + tokens + ["eos"]
                 embeddings = np.zeros((max_len + 2, 300))
-                labels = np.zeros((max_len + 2))  # start and end
+                labels = np.zeros((max_len + 2)) # start and end
 
                 # embeddings = np.zeros((max_len, 300))
                 # labels = np.zeros((max_len)) # start and end
@@ -516,10 +513,10 @@ class PipelineDataset(Dataset):
     def _tranform_des_with_erase(self, lang_feat, lang_len, p=0.2):
         num_erase = int((lang_len - 2) * p)
         erase_ids = np.arange(1, lang_len - 2, 1).tolist()
-        erase_ids = np.random.choice(erase_ids, num_erase, replace=False)  # randomly pick indices of erased tokens
+        erase_ids = np.random.choice(erase_ids, num_erase, replace=False) # randomly pick indices of erased tokens
 
         unk_idx = int(self.vocabulary["word2idx"]["unk"])
-        unk = self.glove[unk_idx]  # 300
+        unk = self.glove[unk_idx] # 300
         unk_exp = unk.reshape((1, -1)).repeat(erase_ids.shape[0], axis=0)
 
         lang_feat[erase_ids] = unk_exp
@@ -548,8 +545,7 @@ class PipelineDataset(Dataset):
         for data in raw_data:
             scene_id = data["scene_id"]
 
-            if scene_id not in scene_data_dict:
-                scene_data_dict[scene_id] = []
+            if scene_id not in scene_data_dict: scene_data_dict[scene_id] = []
 
             scene_data_dict[scene_id].append(data)
 
@@ -686,7 +682,7 @@ class PipelineDataset(Dataset):
 
         if self.requires_bbox:
             assert sem_labels is not None, "sem_labels are not provided"
-            max_num_instance = self.cfg.data.max_num_instance  # NOTE this should always be the same number
+            max_num_instance = self.cfg.data.max_num_instance # NOTE this should always be the same number
             instance_bboxes = np.zeros((max_num_instance, 6))
             instance_bboxes_semcls = np.zeros((max_num_instance))
             instance_bbox_ids = np.zeros((max_num_instance))
@@ -722,11 +718,11 @@ class PipelineDataset(Dataset):
                 instance_bboxes[k, :3] = c_xyz_i
                 instance_bboxes[k, 3:] = max_xyz_i - min_xyz_i
                 sem_cls = sem_labels[inst_i_idx][0]
-                sem_cls = sem_cls - 2 if sem_cls >= 2 else 17
+                sem_cls = sem_cls - 2 if sem_cls >=  2 else 17
                 instance_bboxes_semcls[k] = sem_cls
                 instance_bbox_ids[k] = i_
                 size_classes[k] = sem_cls
-                size_residuals[k, :] = instance_bboxes[k, 3:] - self.DC.mean_size_arr[int(sem_cls), :]
+                size_residuals[k, :] = instance_bboxes[k, 3:] - self.DC.mean_size_arr[int(sem_cls),:]
                 bbox_label[k] = 1
 
         if self.requires_bbox:
@@ -734,7 +730,7 @@ class PipelineDataset(Dataset):
         else:
             return num_instance, instance_info, instance_num_point
 
-    def _get_coord_and_feat_from_mesh(self, mesh_data, scene_id, choices=None):
+    def _get_coord_and_feat_from_mesh(self, mesh_data, scene_id):
         data = mesh_data[:, :3]
 
         if self.use_color:
@@ -742,7 +738,7 @@ class PipelineDataset(Dataset):
             data = np.concatenate([data, colors], 1)
 
         if self.use_normal:
-            assert mesh_data.shape[1] == 9  # make sure xyz, rgb and normals are included
+            assert mesh_data.shape[1] == 9 # make sure xyz, rgb and normals are included
             normals = mesh_data[:, 6:9]
             data = np.concatenate([data, normals], 1)
 
@@ -755,9 +751,8 @@ class PipelineDataset(Dataset):
             try:
                 multiview = self.multiview_data[pid][scene_id][()]
             except KeyError:
-                multiview = np.zeros((data.shape[0], 128))  # placeholder
-            if choices is not None:
-                multiview = multiview[choices]
+                multiview = np.zeros((data.shape[0], 128)) # placeholder
+
             data = np.concatenate([data, multiview], 1)
 
         coords = data[:, :3]
@@ -774,8 +769,8 @@ class PipelineDataset(Dataset):
 
         object_ids = []
         for cid, i_ in enumerate(unique_instance_ids, -1):
-            if i_ < 0:
-                continue
+            if i_ < 0: continue
+
             object_ids.append(i_)
             inst_i_idx = np.where(instance_ids == i_)[0]
             inst_i_points = points[inst_i_idx]
@@ -785,8 +780,7 @@ class PipelineDataset(Dataset):
             xmax = np.max(inst_i_points[:, 0])
             ymax = np.max(inst_i_points[:, 1])
             zmax = np.max(inst_i_points[:, 2])
-            bbox = np.array(
-                [(xmin + xmax) / 2, (ymin + ymax) / 2, (zmin + zmax) / 2, xmax - xmin, ymax - ymin, zmax - zmin])
+            bbox = np.array([(xmin+xmax)/2, (ymin+ymax)/2, (zmin+zmax)/2, xmax-xmin, ymax-ymin, zmax-zmin])
             instance_bboxes[cid, :] = bbox
 
             proposals_idx_i = np.vstack((np.ones(len(inst_i_idx)) * cid, inst_i_idx)).transpose().astype(np.int32)
@@ -799,8 +793,8 @@ class PipelineDataset(Dataset):
         return gt_proposals_idx, gt_proposals_offset, object_ids, instance_bboxes
 
     def _conver_corners_to_cwdh(self, corners):
-        coord_min = np.min(corners, axis=1)  # num_bboxes, 3
-        coord_max = np.max(corners, axis=1)  # num_bboxes, 3
+        coord_min = np.min(corners, axis=1) # num_bboxes, 3
+        coord_max = np.max(corners, axis=1) # num_bboxes, 3
         coord_mean = (coord_max + coord_min) / 2
 
         bbox_cwhd = np.concatenate([coord_mean, coord_max - coord_min], axis=1)
@@ -808,8 +802,8 @@ class PipelineDataset(Dataset):
         return bbox_cwhd
 
     def _get_bbox_centers(self, corners):
-        coord_min = np.min(corners, axis=1)  # num_bboxes, 3
-        coord_max = np.max(corners, axis=1)  # num_bboxes, 3
+        coord_min = np.min(corners, axis=1) # num_bboxes, 3
+        coord_max = np.max(corners, axis=1) # num_bboxes, 3
 
         return (coord_min + coord_max) / 2
 
@@ -839,8 +833,7 @@ class PipelineDataset(Dataset):
 
         gt_sems = [self.objectid2label[scene_id][o_id] for o_id in gt_object_ids]
 
-        return np.array(gt_object_ids), np.array(gt_features), np.array(gt_corners), np.array(gt_centers), np.array(
-            gt_sems)
+        return np.array(gt_object_ids), np.array(gt_features), np.array(gt_corners), np.array(gt_centers), np.array(gt_sems)
 
     def _nn_distance(self, pc1, pc2):
         N = pc1.shape[0]
@@ -849,12 +842,11 @@ class PipelineDataset(Dataset):
         pc2_expand_tile = pc2[np.newaxis, :]
         pc_diff = pc1_expand_tile - pc2_expand_tile
 
-        pc_dist = np.sum(pc_diff ** 2, axis=-1)  # (N,M)
-        idx1 = np.argmin(pc_dist, axis=1)  # (N)
-        idx2 = np.argmin(pc_dist, axis=0)  # (M)
+        pc_dist = np.sum(pc_diff**2, axis=-1) # (N,M)
+        idx1 = np.argmin(pc_dist, axis=1) # (N)
+        idx2 = np.argmin(pc_dist, axis=0) # (M)
 
         return idx1, idx2
-
 
 def scannet_collate_fn(batch):
     batch_size = batch.__len__()
@@ -874,14 +866,13 @@ def scannet_collate_fn(batch):
                 axis=0)
         elif isinstance(batch[0][key], torch.Tensor):
             data[key] = torch.stack([sample[key] for sample in batch],
-                                    axis=0)
+                                        axis=0)
         elif isinstance(batch[0][key], dict):
             data[key] = sparse_collate_fn(
                 [sample[key] for sample in batch])
         else:
             data[key] = [sample[key] for sample in batch]
     return data
-
 
 def sparse_collate_fn(batch):
     data = scannet_collate_fn(batch)
@@ -943,7 +934,7 @@ def sparse_collate_fn(batch):
 
         data["locs"] = torch.cat(locs, 0).to(torch.float32)  # float (N, 3)
         data["locs_scaled"] = torch.cat(locs_scaled, 0)  # long (N, 1 + 3), the batch item idx is put in locs[:, 0]
-        data["feats"] = torch.cat(feats, 0)  # .to(torch.float32)            # float (N, C)
+        data["feats"] = torch.cat(feats, 0)  #.to(torch.float32)            # float (N, C)
         data["batch_offsets"] = torch.tensor(batch_offsets, dtype=torch.int)  # int (B+1)
 
         if len(instance_ids) > 0:
@@ -960,8 +951,7 @@ def sparse_collate_fn(batch):
         # print("raw data collated.")
 
         ### voxelize
-        data["voxel_locs"], data["p2v_map"], data["v2p_map"] = pointgroup_ops.voxelization_idx(data["locs_scaled"],
-                                                                                               len(batch), 4)  # mode=4
+        data["voxel_locs"], data["p2v_map"], data["v2p_map"] = pointgroup_ops.voxelization_idx(data["locs_scaled"], len(batch), 4) # mode=4
         # print("raw data voxelized.")
 
     return data
