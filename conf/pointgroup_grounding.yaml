@@ -75,7 +75,6 @@ model:
 
   no_detection: False
   no_grounding: False
-  no_captioning: True
 
   match_type: Transformer
   loss_type: cross_entropy

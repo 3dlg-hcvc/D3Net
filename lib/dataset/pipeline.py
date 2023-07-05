@@ -1,6 +1,5 @@
 import os
 import sys
-import time
 import json
 import h5py
 import torch
@@ -28,7 +27,7 @@ MEAN_COLOR_RGB = np.array([109.8, 97.2, 83.8])
 
 class PipelineDataset(Dataset):
 
-    def __init__(self, cfg, name, mode, split, raw_data, scan_list, scan2cad_rotation=None, is_augment=False):
+    def __init__(self, cfg, name, mode, split, raw_data, scan_list, is_augment=False):
         self.cfg = cfg
         self.name = name
         self.mode = mode
@@ -36,7 +35,6 @@ class PipelineDataset(Dataset):
         self.raw_data = raw_data
         self.scan_list = scan_list
         self.use_gt = cfg.model.no_detection
-        self.scan2cad_rotation = scan2cad_rotation
         self.is_augment = is_augment
 
         # unpack configurations from config file
@@ -48,7 +46,7 @@ class PipelineDataset(Dataset):
         self.scale = cfg.data.scale
         self.max_num_point = cfg.data.max_num_point
 
-        self.max_des_len = cfg.data.max_spk_len if self.mode == "speaker" else cfg.data.max_lis_len
+        self.max_des_len = cfg.data.max_lis_len
 
         self.use_color = cfg.model.use_color
         self.use_multiview = cfg.model.use_multiview
@@ -94,37 +92,25 @@ class PipelineDataset(Dataset):
                 object_id = self.chunked_data[idx][i]["object_id"]
                 if SCANREFER_ENHANCE:
                     object_ids = self.chunked_data[idx][i]["object_ids"]
-                if object_id != "SYNTHETIC":
-                    annotated = 1
-                    object_id = int(object_id)
-                    object_name = " ".join(self.chunked_data[idx][i]["object_name"].split("_"))
-                    ann_id = self.chunked_data[idx][i]["ann_id"]
-                    object_cat = self.raw2label[object_name] if object_name in self.raw2label else 17
+                annotated = 1
+                object_id = int(object_id)
+                object_name = " ".join(self.chunked_data[idx][i]["object_name"].split("_"))
+                ann_id = self.chunked_data[idx][i]["ann_id"]
+                object_cat = self.raw2label[object_name] if object_name in self.raw2label else 17
 
-                    # get language features
-                    lang_feat = deepcopy(self.lang[scene_id][str(object_id)][ann_id])
-                    lang_len = len(self.chunked_data[idx][i]["token"]) + 2
-                    lang_len = lang_len if lang_len <= self.max_des_len + 2 else self.max_des_len + 2
+                # get language features
+                lang_feat = deepcopy(self.lang[scene_id][str(object_id)][ann_id])
+                lang_len = len(self.chunked_data[idx][i]["token"]) + 2
+                lang_len = lang_len if lang_len <= self.max_des_len + 2 else self.max_des_len + 2
 
-                    # NOTE 50% chance that 20% of the tokens are erased during training
-                    if self.is_augment and random.random() < 0.5 and self.cfg.train.apply_word_erase:
-                        lang_feat = self._tranform_des_with_erase(lang_feat, lang_len, p=0.2)
+                # NOTE 50% chance that 20% of the tokens are erased during training
+                if self.is_augment and random.random() < 0.5 and self.cfg.train.apply_word_erase:
+                    lang_feat = self._tranform_des_with_erase(lang_feat, lang_len, p=0.2)
 
-                    lang_ids = self.lang_ids[scene_id][str(object_id)][ann_id]
-                    unique_multiple_flag = self.unique_multiple_lookup[scene_id][str(object_id)][ann_id]
-                else:
-                    annotated = 0
-                    object_id = -1
-                    object_name = ""
-                    ann_id = -1
-                    object_cat = 17 # will be changed in the model
+                lang_ids = self.lang_ids[scene_id][str(object_id)][ann_id]
+                # unique_multiple_flag = self.unique_multiple_lookup[scene_id][str(object_id)][ann_id]
+                unique_multiple_flag = self.chunked_data[idx][i]["eval_type"]
 
-                    # synthesize language features
-                    lang_feat = np.zeros((self.max_des_len + 2, 300))
-                    lang_len = 0
-
-                    lang_ids = np.zeros(self.max_des_len + 2)
-                    unique_multiple_flag = 0
 
             # store
             # HACK the last sample will be repeated if chunk size
@@ -141,136 +127,65 @@ class PipelineDataset(Dataset):
             unique_multiple_list[i] = unique_multiple_flag
             object_cat_list[i] = object_cat
 
-        if not self.use_gt:
-            instance_ids = scene["instance_ids"]
-            sem_labels = scene["sem_labels"]  # {0,1,...,19}, -1 as ignored (unannotated) class
 
-            # augment and scale
-            points_augment = self._augment(points)[0] if self.is_augment else points.copy()
-            points = points_augment * self.scale
+        instance_ids = scene["instance_ids"]
+        sem_labels = scene["sem_labels"]  # {0,1,...,19}, -1 as ignored (unannotated) class
 
-            # elastic
-            # if self.is_augment and self.cfg.general.task == "train":
-            if self.is_augment and (
-                    not self.cfg.model.no_detection and self.cfg.model.no_captioning and self.cfg.model.no_grounding):
-                points = elastic(points, 6 * self.scale // 50, 40 * self.scale / 50)
-                points = elastic(points, 20 * self.scale // 50, 160 * self.scale / 50)
+        # augment and scale
+        points_augment = self._augment(points)[0] if self.is_augment else points.copy()
+        points = points_augment * self.scale
 
-            # offset
-            points -= points.min(0)
+        # elastic
+        # if self.is_augment and self.cfg.general.task == "train":
+        # if self.is_augment and (not self.cfg.model.no_detection and self.cfg.model.no_captioning and self.cfg.model.no_grounding):
+        #     points = elastic(points, 6 * self.scale // 50, 40 * self.scale / 50)
+        #     points = elastic(points, 20 * self.scale // 50, 160 * self.scale / 50)
 
-            # if self.is_augment and self.cfg.general.task == "train":
-            if self.is_augment and (
-                    not self.cfg.model.no_detection and self.cfg.model.no_captioning and self.cfg.model.no_grounding):
-                ### crop
-                points, valid_idxs = crop(points, self.max_num_point, self.full_scale[1])
+        # offset
+        points -= points.min(0)
 
-                points = points[valid_idxs]
-                points_augment = points_augment[valid_idxs]
-                feats = feats[valid_idxs]
-                sem_labels = sem_labels[valid_idxs]
-                instance_ids = self._croppedInstanceIds(instance_ids, valid_idxs)
+        # if self.is_augment and self.cfg.general.task == "train":
+        # if self.is_augment and (
+        #         not self.cfg.model.no_detection and self.cfg.model.no_captioning and self.cfg.model.no_grounding):
+        #     ### crop
+        #     points, valid_idxs = crop(points, self.max_num_point, self.full_scale[1])
+        #
+        #     points = points[valid_idxs]
+        #     points_augment = points_augment[valid_idxs]
+        #     feats = feats[valid_idxs]
+        #     sem_labels = sem_labels[valid_idxs]
+        #     instance_ids = self._croppedInstanceIds(instance_ids, valid_idxs)
 
-            (num_instance, instance_info, instance_num_point,
-             instance_bboxes, instance_bboxes_semcls, instance_bbox_ids,
-             angle_classes, angle_residuals,
-             size_classes, size_residuals, bbox_label) = self._getInstanceInfo(points_augment, instance_ids,
-                                                                               sem_labels)
+        (num_instance, instance_info, instance_num_point,
+         instance_bboxes, instance_bboxes_semcls, instance_bbox_ids,
+         angle_classes, angle_residuals,
+         size_classes, size_residuals, bbox_label) = self._getInstanceInfo(points_augment, instance_ids,
+                                                                           sem_labels)
 
-            if USE_GT:
-                gt_proposals_idx, gt_proposals_offset, _, instances_bboxes_tmp = self._generate_gt_clusters(
-                    points_augment, instance_ids)
+        if USE_GT:
+            gt_proposals_idx, gt_proposals_offset, _, instances_bboxes_tmp = self._generate_gt_clusters(
+                points_augment, instance_ids)
 
-                data["gt_proposals_idx"] = gt_proposals_idx
-                data["gt_proposals_offset"] = gt_proposals_offset
-                data["instances_bboxes_tmp"] = instances_bboxes_tmp
+            data["gt_proposals_idx"] = gt_proposals_idx
+            data["gt_proposals_offset"] = gt_proposals_offset
+            data["instances_bboxes_tmp"] = instances_bboxes_tmp
 
-            # for instance segmentation
-            data["locs"] = points_augment.astype(np.float32)  # (N, 3)
-            data["locs_scaled"] = points.astype(np.float32)  # (N, 3)
-            data["feats"] = feats.astype(np.float32)  # (N, 3)
-            data["sem_labels"] = sem_labels.astype(np.int32)  # (N,)
-            data["instance_ids"] = instance_ids.astype(np.int32)  # (N,) 0~total_nInst, -1
-            data["num_instance"] = np.array(num_instance).astype(np.int32)  # int
-            data["instance_info"] = instance_info.astype(np.float32)  # (N, 12)
-            data["instance_num_point"] = np.array(instance_num_point).astype(np.int32)  # (num_instance,)
+        # for instance segmentation
+        data["locs"] = points_augment.astype(np.float32)  # (N, 3)
+        data["locs_scaled"] = points.astype(np.float32)  # (N, 3)
+        data["feats"] = feats.astype(np.float32)  # (N, 3)
+        data["sem_labels"] = sem_labels.astype(np.int32)  # (N,)
+        data["instance_ids"] = instance_ids.astype(np.int32)  # (N,) 0~total_nInst, -1
+        data["num_instance"] = np.array(num_instance).astype(np.int32)  # int
+        data["instance_info"] = instance_info.astype(np.float32)  # (N, 12)
+        data["instance_num_point"] = np.array(instance_num_point).astype(np.int32)  # (num_instance,)
 
-        else:  # pre-computed GT bounding boxes and features
-            # gt_object_ids = np.zeros((self.cfg.data.max_num_instance,))
-            # gt_features = np.zeros((self.cfg.data.max_num_instance, self.cfg.model.m))
-            # gt_corners = np.zeros((self.cfg.data.max_num_instance, 8, 3))
-            # gt_centers = np.zeros((self.cfg.data.max_num_instance, 3))
-            # gt_scores = np.zeros((self.cfg.data.max_num_instance,))
-            # gt_masks = np.zeros((self.cfg.data.max_num_instance,))
-            # gt_sems = np.zeros((self.cfg.data.max_num_instance,))
 
-            # cur_object_ids, cur_features, cur_corners, cur_centers, cur_sems = self._get_feature(scene_id)
-            # num_valid_objects = cur_object_ids.shape[0]
-            # gt_object_ids[:num_valid_objects] = cur_object_ids
-            # gt_features[:num_valid_objects] = cur_features
-            # gt_corners[:num_valid_objects] = cur_corners
-            # gt_centers[:num_valid_objects] = cur_centers
-            # gt_scores[:num_valid_objects] = 1
-            # gt_masks[:num_valid_objects] = 1
-            # gt_sems[:num_valid_objects] = cur_sems
-
-            # if self.is_augment and self.cfg.general.task == "train":
-            #     ids = np.random.permutation(self.cfg.data.max_num_instance)
-            #     gt_object_ids = gt_object_ids[ids]
-            #     gt_features = gt_features[ids]
-            #     gt_corners = gt_corners[ids]
-            #     gt_centers = gt_centers[ids]
-            #     gt_scores = gt_scores[ids]
-            #     gt_masks = gt_masks[ids]
-            #     gt_sems = gt_sems[ids]
-
-            # # assignments
-            # _, assignments = self._nn_distance(gt_centers, gt_centers.astype(np.float32)[:,0:3])
-
-            # # current target
-            # bbox_idx = np.zeros((self.chunk_size))
-            # for j in range(len(object_id_list)):
-            #     for i in range(len(gt_object_ids)):
-            #         if gt_masks[i] == 1 and gt_object_ids[i] == object_id_list[j]:
-            #             bbox_idx[j] = i
-
-            # instance_bboxes = self._conver_corners_to_cwdh(gt_corners)
-            # instance_bboxes_semcls = gt_sems
-            # instance_bbox_ids = gt_object_ids
-            # angle_classes = np.zeros((self.cfg.data.max_num_instance,))
-            # angle_residuals = np.zeros((self.cfg.data.max_num_instance,))
-            # size_classes = np.zeros((self.cfg.data.max_num_instance,))
-            # size_residuals = np.zeros((self.cfg.data.max_num_instance, 3))
-            # bbox_label = gt_masks
-
-            # # store
-            # data["proposal_object_ids"] = gt_object_ids.astype(np.int64)
-            # data["proposal_feats_batched"] = gt_features.astype(np.float32)
-            # data["proposal_bbox_batched"] = gt_corners.astype(np.float32)
-            # data["proposal_center_batched"] = gt_centers.astype(np.float32)
-            # data["proposal_sem_cls_batched"] = gt_sems.astype(np.int64)
-            # data["proposal_scores_batched"] = gt_scores.astype(np.int64)
-            # data["proposal_batch_mask"] = gt_masks.astype(np.int64)
-            # data["object_assignment"] = assignments.astype(np.int64)
-            # data["bbox_idx"] = bbox_idx.astype(np.int64)
-
-            raise NotImplementedError("GTs are not ready yet.")
 
         # object rotations
         scene_object_rotations = np.zeros((self.cfg.data.max_num_instance, 3, 3))
         scene_object_rotation_masks = np.zeros((self.cfg.data.max_num_instance,))  # NOTE this is not object mask!!!
-        # if scene is not in scan2cad annotations, skip
-        # if the instance is not in scan2cad annotations, skip
-        if self.scan2cad_rotation and scene_id in self.scan2cad_rotation:
-            for i, instance_id in enumerate(instance_bbox_ids.astype(int)):
-                if bbox_label[i] == 1:
-                    try:
-                        rotation = np.array(self.scan2cad_rotation[scene_id][str(instance_id)])
 
-                        scene_object_rotations[i] = rotation
-                        scene_object_rotation_masks[i] = 1
-                    except KeyError:
-                        pass
 
         # construct the reference target label for each bbox
         multi_ref_box_label_list = np.zeros((self.chunk_size, self.cfg.data.max_num_instance), dtype=bool)
@@ -336,14 +251,12 @@ class PipelineDataset(Dataset):
         if SCANREFER_ENHANCE:
             data["multi_ref_box_label_list"] = multi_ref_box_label_list
 
-
         return data
 
     def _load(self):
         # loading preprocessed scene data
-        if not self.use_gt:
-            self.scenes = {scene_id: torch.load(os.path.join(self.root, self.split, scene_id+self.file_suffix))
-                for scene_id in tqdm(self.scan_list)}
+        self.scenes = {scene_id: torch.load(os.path.join(self.root, self.split, scene_id+self.file_suffix))
+            for scene_id in tqdm(self.scan_list)}
 
         # load language features
         self.vocabulary, self.glove = self._build_vocabulary()
@@ -354,109 +267,79 @@ class PipelineDataset(Dataset):
         self.chunk_size = self.cfg.data.num_des_per_scene
         self.chunked_data = self._get_chunked_data(self.raw_data, self.chunk_size)
 
-        # prepare class mapping
-        lines = [line.rstrip() for line in open(self.cfg.SCANNETV2_PATH.combine_file)]
-        lines = lines[1:]
-        raw2nyuid = {}
-        for i in range(len(lines)):
-            elements = lines[i].split("\t")
-            raw_name = elements[1]
-            nyu40_name = int(elements[4])
-            raw2nyuid[raw_name] = nyu40_name
-
-        # store
-        self.raw2nyuid = raw2nyuid
         self.raw2label = self._get_raw2label()
-        if self.use_gt: self.objectid2label = self._get_objectid2label(self.scan_list, self.raw2label)
-        self.unique_multiple_lookup = self._get_unique_multiple_lookup()
 
-    def _get_objectid2label(self, scene_list, objectname2label):
-        objectid2label = {}
-        for scan_id in scene_list:
-            entry = {}
-            with open(os.path.join(self.cfg.SCANNETV2_PATH.raw_scans, scan_id, scan_id + ".aggregation.json")) as f:
-                aggr = json.load(f)
-                for data in aggr["segGroups"]:
-                    object_id = int(data["objectId"])
-                    object_name = data["label"]
 
-                    object_label = int(objectname2label[object_name])
-
-                    entry[object_id] = object_label
-
-            objectid2label[scan_id] = entry
-
-        return objectid2label
 
     def _build_vocabulary(self):
         vocab_path = self.cfg["{}_PATH".format(self.name.upper())].vocabulary
-        if os.path.exists(vocab_path):
-            print("loading vocabulary from {}...".format(vocab_path))
-            vocabulary = json.load(open(vocab_path))
+        # if os.path.exists(vocab_path):
+        #     print("loading vocabulary from {}...".format(vocab_path))
+        #     vocabulary = json.load(open(vocab_path))
+        #
+        #     # HACK this won't be necessary if the vocabulary is newly built
+        #     if "special_tokens" not in vocabulary:
+        #         speical_tokens = {
+        #             "bos_token": "sos",
+        #             "eos_token": "eos",
+        #             "unk_token": "unk",
+        #             "pad_token": "pad_"
+        #         }
+        #         vocabulary["special_tokens"] = speical_tokens
+        # else:
+        if self.split == "train":
+            print("building vocabulary...")
+            with open(self.cfg["{}_PATH".format(self.name.upper())].glove_pickle, "rb") as f:
+                glove = pickle.load(f)
+            train_data = [d for d in self.raw_data]
+            all_words = chain(*[data["token"][:self.max_des_len] for data in train_data])
+            word_counter = Counter(all_words)
+            word_counter = sorted([(k, v) for k, v in word_counter.items() if k in glove], key=lambda x: x[1], reverse=True)
+            word_list = [k for k, _ in word_counter]
 
-            # HACK this won't be necessary if the vocabulary is newly built
-            if "special_tokens" not in vocabulary:
-                speical_tokens = {
-                    "bos_token": "sos",
-                    "eos_token": "eos",
-                    "unk_token": "unk",
-                    "pad_token": "pad_"
-                }
-                vocabulary["special_tokens"] = speical_tokens
-        else:
-            if self.split == "train":
-                print("building vocabulary...")
-                with open(self.cfg["{}_PATH".format(self.name.upper())].glove_pickle, "rb") as f:
-                    glove = pickle.load(f)
-                train_data = [d for d in self.raw_data if d["object_id"] != "SYNTHETIC"]
-                all_words = chain(*[data["token"][:self.max_des_len] for data in train_data])
-                word_counter = Counter(all_words)
-                word_counter = sorted([(k, v) for k, v in word_counter.items() if k in glove], key=lambda x: x[1], reverse=True)
-                word_list = [k for k, _ in word_counter]
+            # build vocabulary
+            word2idx, idx2word = {}, {}
+            spw = ["pad_", "unk", "sos", "eos"] # NOTE distinguish padding token "pad_" and the actual word "pad"
+            for i, w in enumerate(word_list):
+                shifted_i = i + len(spw)
+                word2idx[w] = shifted_i
+                idx2word[shifted_i] = w
 
-                # build vocabulary
-                word2idx, idx2word = {}, {}
-                spw = ["pad_", "unk", "sos", "eos"] # NOTE distinguish padding token "pad_" and the actual word "pad"
-                for i, w in enumerate(word_list):
-                    shifted_i = i + len(spw)
-                    word2idx[w] = shifted_i
-                    idx2word[shifted_i] = w
+            # add special words into vocabulary
+            for i, w in enumerate(spw):
+                word2idx[w] = i
+                idx2word[i] = w
 
-                # add special words into vocabulary
-                for i, w in enumerate(spw):
-                    word2idx[w] = i
-                    idx2word[i] = w
-
-                speical_tokens = {
-                    "bos_token": "sos",
-                    "eos_token": "eos",
-                    "unk_token": "unk",
-                    "pad_token": "pad_"
-                }
-                vocabulary = {
-                    "word2idx": word2idx,
-                    "idx2word": idx2word,
-                    "special_tokens": speical_tokens
-                }
-                json.dump(vocabulary, open(vocab_path, "w"), indent=4)
+            speical_tokens = {
+                "bos_token": "sos",
+                "eos_token": "eos",
+                "unk_token": "unk",
+                "pad_token": "pad_"
+            }
+            vocabulary = {
+                "word2idx": word2idx,
+                "idx2word": idx2word,
+                "special_tokens": speical_tokens
+            }
+            json.dump(vocabulary, open(vocab_path, "w"), indent=4)
 
 
         emb_mat_path = self.cfg["{}_PATH".format(self.name.upper())].glove_numpy
-        if os.path.exists(emb_mat_path):
-            embeddings = np.load(emb_mat_path)
-        else:
-            all_glove = pickle.load(open(self.cfg["{}_PATH".format(self.name.upper())].glove_pickle, "rb"))
+        # if os.path.exists(emb_mat_path):
+        #     embeddings = np.load(emb_mat_path)
+        # else:
+        all_glove = pickle.load(open(self.cfg["{}_PATH".format(self.name.upper())].glove_pickle, "rb"))
 
-            embeddings = np.zeros((len(vocabulary["word2idx"]), 300))
-            for word, idx in vocabulary["word2idx"].items():
-                try:
-                    emb = all_glove[word]
-                except KeyError:
-                    emb = all_glove["unk"]
+        embeddings = np.zeros((len(vocabulary["word2idx"]), 300))
+        for word, idx in vocabulary["word2idx"].items():
+            try:
+                emb = all_glove[word]
+            except KeyError:
+                emb = all_glove["unk"]
 
-                embeddings[int(idx)] = emb
+            embeddings[int(idx)] = emb
 
-            np.save(emb_mat_path, embeddings)
+        np.save(emb_mat_path, embeddings)
 
         return vocabulary, embeddings
 
@@ -468,45 +351,45 @@ class PipelineDataset(Dataset):
             object_id = data["object_id"]
             ann_id = data["ann_id"]
 
-            if object_id != "SYNTHETIC":
 
-                if scene_id not in lang:
-                    lang[scene_id] = {}
-                    label[scene_id] = {}
 
-                if object_id not in lang[scene_id]:
-                    lang[scene_id][object_id] = {}
-                    label[scene_id][object_id] = {}
+            if scene_id not in lang:
+                lang[scene_id] = {}
+                label[scene_id] = {}
 
-                if ann_id not in lang[scene_id][object_id]:
-                    lang[scene_id][object_id][ann_id] = {}
-                    label[scene_id][object_id][ann_id] = {}
+            if object_id not in lang[scene_id]:
+                lang[scene_id][object_id] = {}
+                label[scene_id][object_id] = {}
 
-                # trim long descriptions
-                tokens = data["token"][:max_len]
+            if ann_id not in lang[scene_id][object_id]:
+                lang[scene_id][object_id][ann_id] = {}
+                label[scene_id][object_id][ann_id] = {}
 
-                # tokenize the description
-                tokens = ["sos"] + tokens + ["eos"]
-                embeddings = np.zeros((max_len + 2, 300))
-                labels = np.zeros((max_len + 2)) # start and end
+            # trim long descriptions
+            tokens = data["token"][:max_len]
 
-                # embeddings = np.zeros((max_len, 300))
-                # labels = np.zeros((max_len)) # start and end
+            # tokenize the description
+            tokens = ["sos"] + tokens + ["eos"]
+            embeddings = np.zeros((max_len + 2, 300))
+            labels = np.zeros((max_len + 2)) # start and end
 
-                # load
-                for token_id in range(len(tokens)):
-                    token = tokens[token_id]
-                    if token not in self.vocabulary["word2idx"]: token = "unk"
+            # embeddings = np.zeros((max_len, 300))
+            # labels = np.zeros((max_len)) # start and end
 
-                    glove_id = int(self.vocabulary["word2idx"][token])
-                    embeddings[token_id] = self.glove[glove_id]
+            # load
+            for token_id in range(len(tokens)):
+                token = tokens[token_id]
+                if token not in self.vocabulary["word2idx"]: token = "unk"
 
-                    if token_id < max_len + 2:
-                        labels[token_id] = self.vocabulary["word2idx"][token]
+                glove_id = int(self.vocabulary["word2idx"][token])
+                embeddings[token_id] = self.glove[glove_id]
 
-                # store
-                lang[scene_id][object_id][ann_id] = embeddings
-                label[scene_id][object_id][ann_id] = labels
+                if token_id < max_len + 2:
+                    labels[token_id] = self.vocabulary["word2idx"][token]
+
+            # store
+            lang[scene_id][object_id][ann_id] = embeddings
+            label[scene_id][object_id][ann_id] = labels
 
         return lang, label
 
@@ -530,12 +413,10 @@ class PipelineDataset(Dataset):
             scene_id = data["scene_id"]
             object_id = data["object_id"]
 
-            if object_id != "SYNTHETIC":
+            if scene_id not in organized: organized[scene_id] = {}
+            if object_id not in organized[scene_id]: organized[scene_id][object_id] = []
 
-                if scene_id not in organized: organized[scene_id] = {}
-                if object_id not in organized[scene_id]: organized[scene_id][object_id] = []
-
-                organized[scene_id][object_id].append(data)
+            organized[scene_id][object_id].append(data)
 
         return organized
 
@@ -581,59 +462,6 @@ class PipelineDataset(Dataset):
                 raw2label[raw_name] = scannet2label[nyu40_name]
 
         return raw2label
-
-    def _get_unique_multiple_lookup(self):
-        all_sem_labels = {}
-        cache = {}
-        for data in self.raw_data:
-            scene_id = data["scene_id"]
-            object_id = data["object_id"]
-            object_name = " ".join(data["object_name"].split("_"))
-            ann_id = data["ann_id"]
-
-            if scene_id not in all_sem_labels:
-                all_sem_labels[scene_id] = []
-
-            if scene_id not in cache:
-                cache[scene_id] = {}
-
-            if object_id not in cache[scene_id]:
-                cache[scene_id][object_id] = {}
-                try:
-                    all_sem_labels[scene_id].append(self.raw2label[object_name])
-                except KeyError:
-                    all_sem_labels[scene_id].append(17)
-
-        # convert to numpy array
-        all_sem_labels = {scene_id: np.array(all_sem_labels[scene_id]) for scene_id in all_sem_labels.keys()}
-
-        unique_multiple_lookup = {}
-        for data in self.raw_data:
-            scene_id = data["scene_id"]
-            object_id = data["object_id"]
-            object_name = " ".join(data["object_name"].split("_"))
-            ann_id = data["ann_id"]
-
-            try:
-                sem_label = self.raw2label[object_name]
-            except KeyError:
-                sem_label = 17
-
-            unique_multiple = 0 if (all_sem_labels[scene_id] == sem_label).sum() == 1 else 1
-
-            # store
-            if scene_id not in unique_multiple_lookup:
-                unique_multiple_lookup[scene_id] = {}
-
-            if object_id not in unique_multiple_lookup[scene_id]:
-                unique_multiple_lookup[scene_id][object_id] = {}
-
-            if ann_id not in unique_multiple_lookup[scene_id][object_id]:
-                unique_multiple_lookup[scene_id][object_id][ann_id] = None
-
-            unique_multiple_lookup[scene_id][object_id][ann_id] = unique_multiple
-
-        return unique_multiple_lookup
 
     def _augment(self, xyz, instance_bboxes=None, return_mat=False):
         m = np.eye(3)
@@ -792,15 +620,6 @@ class PipelineDataset(Dataset):
 
         return gt_proposals_idx, gt_proposals_offset, object_ids, instance_bboxes
 
-    def _conver_corners_to_cwdh(self, corners):
-        coord_min = np.min(corners, axis=1) # num_bboxes, 3
-        coord_max = np.max(corners, axis=1) # num_bboxes, 3
-        coord_mean = (coord_max + coord_min) / 2
-
-        bbox_cwhd = np.concatenate([coord_mean, coord_max - coord_min], axis=1)
-
-        return bbox_cwhd
-
     def _get_bbox_centers(self, corners):
         coord_min = np.min(corners, axis=1) # num_bboxes, 3
         coord_max = np.max(corners, axis=1) # num_bboxes, 3
@@ -835,21 +654,9 @@ class PipelineDataset(Dataset):
 
         return np.array(gt_object_ids), np.array(gt_features), np.array(gt_corners), np.array(gt_centers), np.array(gt_sems)
 
-    def _nn_distance(self, pc1, pc2):
-        N = pc1.shape[0]
-        M = pc2.shape[0]
-        pc1_expand_tile = pc1[:, np.newaxis]
-        pc2_expand_tile = pc2[np.newaxis, :]
-        pc_diff = pc1_expand_tile - pc2_expand_tile
-
-        pc_dist = np.sum(pc_diff**2, axis=-1) # (N,M)
-        idx1 = np.argmin(pc_dist, axis=1) # (N)
-        idx2 = np.argmin(pc_dist, axis=0) # (M)
-
-        return idx1, idx2
 
 def scannet_collate_fn(batch):
-    batch_size = batch.__len__()
+
     data = {}
     for key in batch[0].keys():
         if key in ['locs', 'locs_scaled', 'feats', 'sem_labels', 'instance_ids', 'num_instance', 'instance_info',
