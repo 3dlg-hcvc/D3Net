@@ -270,76 +270,75 @@ class PipelineDataset(Dataset):
         self.raw2label = self._get_raw2label()
 
 
-
     def _build_vocabulary(self):
         vocab_path = self.cfg["{}_PATH".format(self.name.upper())].vocabulary
-        # if os.path.exists(vocab_path):
-        #     print("loading vocabulary from {}...".format(vocab_path))
-        #     vocabulary = json.load(open(vocab_path))
-        #
-        #     # HACK this won't be necessary if the vocabulary is newly built
-        #     if "special_tokens" not in vocabulary:
-        #         speical_tokens = {
-        #             "bos_token": "sos",
-        #             "eos_token": "eos",
-        #             "unk_token": "unk",
-        #             "pad_token": "pad_"
-        #         }
-        #         vocabulary["special_tokens"] = speical_tokens
-        # else:
-        if self.split == "train":
-            print("building vocabulary...")
-            with open(self.cfg["{}_PATH".format(self.name.upper())].glove_pickle, "rb") as f:
-                glove = pickle.load(f)
-            train_data = [d for d in self.raw_data]
-            all_words = chain(*[data["token"][:self.max_des_len] for data in train_data])
-            word_counter = Counter(all_words)
-            word_counter = sorted([(k, v) for k, v in word_counter.items() if k in glove], key=lambda x: x[1], reverse=True)
-            word_list = [k for k, _ in word_counter]
+        if os.path.exists(vocab_path):
+            print("loading vocabulary from {}...".format(vocab_path))
+            vocabulary = json.load(open(vocab_path))
 
-            # build vocabulary
-            word2idx, idx2word = {}, {}
-            spw = ["pad_", "unk", "sos", "eos"] # NOTE distinguish padding token "pad_" and the actual word "pad"
-            for i, w in enumerate(word_list):
-                shifted_i = i + len(spw)
-                word2idx[w] = shifted_i
-                idx2word[shifted_i] = w
+            # HACK this won't be necessary if the vocabulary is newly built
+            if "special_tokens" not in vocabulary:
+                speical_tokens = {
+                    "bos_token": "sos",
+                    "eos_token": "eos",
+                    "unk_token": "unk",
+                    "pad_token": "pad_"
+                }
+                vocabulary["special_tokens"] = speical_tokens
+        else:
+            if self.split == "train":
+                print("building vocabulary...")
+                with open(self.cfg["{}_PATH".format(self.name.upper())].glove_pickle, "rb") as f:
+                    glove = pickle.load(f)
+                train_data = [d for d in self.raw_data]
+                all_words = chain(*[data["token"][:self.max_des_len] for data in train_data])
+                word_counter = Counter(all_words)
+                word_counter = sorted([(k, v) for k, v in word_counter.items() if k in glove], key=lambda x: x[1], reverse=True)
+                word_list = [k for k, _ in word_counter]
 
-            # add special words into vocabulary
-            for i, w in enumerate(spw):
-                word2idx[w] = i
-                idx2word[i] = w
+                # build vocabulary
+                word2idx, idx2word = {}, {}
+                spw = ["pad_", "unk", "sos", "eos"] # NOTE distinguish padding token "pad_" and the actual word "pad"
+                for i, w in enumerate(word_list):
+                    shifted_i = i + len(spw)
+                    word2idx[w] = shifted_i
+                    idx2word[shifted_i] = w
 
-            speical_tokens = {
-                "bos_token": "sos",
-                "eos_token": "eos",
-                "unk_token": "unk",
-                "pad_token": "pad_"
-            }
-            vocabulary = {
-                "word2idx": word2idx,
-                "idx2word": idx2word,
-                "special_tokens": speical_tokens
-            }
-            json.dump(vocabulary, open(vocab_path, "w"), indent=4)
+                # add special words into vocabulary
+                for i, w in enumerate(spw):
+                    word2idx[w] = i
+                    idx2word[i] = w
+
+                speical_tokens = {
+                    "bos_token": "sos",
+                    "eos_token": "eos",
+                    "unk_token": "unk",
+                    "pad_token": "pad_"
+                }
+                vocabulary = {
+                    "word2idx": word2idx,
+                    "idx2word": idx2word,
+                    "special_tokens": speical_tokens
+                }
+                json.dump(vocabulary, open(vocab_path, "w"), indent=4)
 
 
         emb_mat_path = self.cfg["{}_PATH".format(self.name.upper())].glove_numpy
-        # if os.path.exists(emb_mat_path):
-        #     embeddings = np.load(emb_mat_path)
-        # else:
-        all_glove = pickle.load(open(self.cfg["{}_PATH".format(self.name.upper())].glove_pickle, "rb"))
+        if os.path.exists(emb_mat_path):
+            embeddings = np.load(emb_mat_path)
+        else:
+            all_glove = pickle.load(open(self.cfg["{}_PATH".format(self.name.upper())].glove_pickle, "rb"))
 
-        embeddings = np.zeros((len(vocabulary["word2idx"]), 300))
-        for word, idx in vocabulary["word2idx"].items():
-            try:
-                emb = all_glove[word]
-            except KeyError:
-                emb = all_glove["unk"]
+            embeddings = np.zeros((len(vocabulary["word2idx"]), 300))
+            for word, idx in vocabulary["word2idx"].items():
+                try:
+                    emb = all_glove[word]
+                except KeyError:
+                    emb = all_glove["unk"]
 
-            embeddings[int(idx)] = emb
+                embeddings[int(idx)] = emb
 
-        np.save(emb_mat_path, embeddings)
+            np.save(emb_mat_path, embeddings)
 
         return vocabulary, embeddings
 
@@ -350,8 +349,6 @@ class PipelineDataset(Dataset):
             scene_id = data["scene_id"]
             object_id = data["object_id"]
             ann_id = data["ann_id"]
-
-
 
             if scene_id not in lang:
                 lang[scene_id] = {}
