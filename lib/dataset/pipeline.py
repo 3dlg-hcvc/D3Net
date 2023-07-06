@@ -182,7 +182,9 @@ class PipelineDataset(Dataset):
         data["instance_info"] = instance_info.astype(np.float32)  # (N, 12)
         data["instance_num_point"] = np.array(instance_num_point).astype(np.int32)  # (num_instance,)
 
-
+        # data["gt_target_obj_id_mask"] = np.zeros(
+        #     shape=(self.data_cfg.chunk_size, data["gt_aabb_obj_ids"].shape[0]), dtype=bool
+        # )
 
         # object rotations
         scene_object_rotations = np.zeros((self.cfg.data.max_num_instance, 3, 3))
