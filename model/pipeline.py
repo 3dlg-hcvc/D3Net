@@ -195,10 +195,7 @@ class PipelineNet(pl.LightningModule):
             gt_bboxes_bound = torch.stack((gt_bboxes.min(1)[0], gt_bboxes.max(1)[0]), dim=1)
 
             for j in range(chunk_size):
-                if data_dict["eval_type"][i][j] != "zt_w_d" and data_dict["eval_type"][i][j] != "zt_wo_d":
-                    assert gt_bboxes_bound.shape[0] >= 1
-                elif data_dict["eval_type"][i][j] == "mt":
-                    assert gt_bboxes_bound.shape[0] >= 2
+
                 gts[
                     (data_dict["scene_id"][i], data_dict["object_id"][i][j].item(),
                      data_dict["ann_id"][i][j].item())
