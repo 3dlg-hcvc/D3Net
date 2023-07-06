@@ -349,7 +349,7 @@ class PointGroup(pl.LightningModule):
             data_dict["proposal_objectness_scores"] = torch.sigmoid(scores.view(-1))[thres_mask]
             
             if self.cfg.model.crop_bbox:
-                proposal_crop_bbox = torch.zeros(num_proposals, 9).cuda() # (nProposals, center+size+heading+label)
+                proposal_crop_bbox = torch.zeros(num_proposals, 9, device="cuda") # (nProposals, center+size+heading+label)
                 proposal_crop_bbox[:, :3] = proposals_center
                 proposal_crop_bbox[:, 3:6] = proposals_size
                 proposal_crop_bbox[:, 7] = semantic_preds[proposals_idx[proposals_offset[:-1].long(), 1].long()]
@@ -357,11 +357,11 @@ class PointGroup(pl.LightningModule):
                 proposal_crop_bbox = proposal_crop_bbox[thres_mask]
                 data_dict["proposal_crop_bbox"] = proposal_crop_bbox
 
-            if self.cfg.model.pred_bbox:
-                encoded_pred_bbox = self.bbox_regressor(proposals_score_feats) # (nProposal, 3+num_heading_bin*2+num_size_cluster*4+num_class)
-                encoded_pred_bbox = encoded_pred_bbox[thres_mask]
-                data_dict["proposal_info"] = (proposals_center[thres_mask], proposals_size[thres_mask])
-                data_dict = self.decode_bbox_prediction(encoded_pred_bbox)
+            # if self.cfg.model.pred_bbox:
+            #     encoded_pred_bbox = self.bbox_regressor(proposals_score_feats) # (nProposal, 3+num_heading_bin*2+num_size_cluster*4+num_class)
+            #     encoded_pred_bbox = encoded_pred_bbox[thres_mask]
+            #     data_dict["proposal_info"] = (proposals_center[thres_mask], proposals_size[thres_mask])
+            #     data_dict = self.decode_bbox_prediction(encoded_pred_bbox)
             
         return data_dict
     
