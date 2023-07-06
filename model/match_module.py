@@ -75,7 +75,7 @@ class TransformerMatchModule(nn.Module):
 
         return confidence
 
-    def forward(self, data_dict, use_rl=False):
+    def forward(self, data_dict):
         """
         Args:
             xyz: (B,K,3)
@@ -156,47 +156,17 @@ class TransformerMatchModule(nn.Module):
                 else:
                     feature0[i, obj_mask[:total_len - obj_lens[i]], :] = obj_features[j:j + total_len - obj_lens[i], :]
         
-        if use_rl:
-            # NOTE visual features must be expanded to matched the number of sampled sentences
-            sampled_topn = data_dict["sampled_topn"] # e.g. 3
-            feature0 = feature0.unsqueeze(1).repeat(1, sampled_topn, 1, 1).reshape(-1, num_proposal, self.hidden_size)
-            dist_weights = dist_weights.unsqueeze(1).repeat(1, sampled_topn, 1, 1, 1).reshape(-1, self.head, num_proposal, num_proposal)
 
-            feature1 = feature0[:, None, :, :].repeat(1, len_nun_max, 1, 1).reshape(-1, num_proposal, self.hidden_size)
-            if dist_weights is not None:
-                dist_weights = dist_weights[:, None, :, :, :].repeat(1, len_nun_max, 1, 1, 1).reshape(-1, self.head, num_proposal, num_proposal)
+        feature1 = feature0[:, None, :, :].repeat(1, len_nun_max, 1, 1).reshape(-1, num_proposal, self.hidden_size)
+        if dist_weights is not None:
+            dist_weights = dist_weights[:, None, :, :, :].repeat(1, len_nun_max, 1, 1, 1).reshape(-1, self.head, num_proposal, num_proposal)
 
-            v_features = feature1
+        v_features = feature1
 
-            l_features = data_dict["lang_hiddens"]["sampled"]
-            l_masks = data_dict["lang_masks"]["sampled"]
-            assert v_features.shape[0] == l_features.shape[0]
+        l_features = data_dict["lang_hiddens"]
+        l_masks = data_dict["lang_masks"]
+        cluster_ref = self.multiplex_attention(v_features, l_features, l_masks, dist_weights, attention_matrix_way)
 
-            sampled_ref = self.multiplex_attention(v_features, l_features, l_masks, dist_weights, attention_matrix_way)
-
-            with torch.no_grad():
-                l_features = data_dict["lang_hiddens"]["baseline"]
-                l_masks = data_dict["lang_masks"]["baseline"]
-                assert v_features.shape[0] == l_features.shape[0]
-
-                baseline_ref = self.multiplex_attention(v_features, l_features, l_masks, dist_weights, attention_matrix_way)
-            
-            data_dict["cluster_ref"] = {
-                "sampled": sampled_ref,
-                "baseline": baseline_ref
-            }
-
-        else:
-            feature1 = feature0[:, None, :, :].repeat(1, len_nun_max, 1, 1).reshape(-1, num_proposal, self.hidden_size)
-            if dist_weights is not None:
-                dist_weights = dist_weights[:, None, :, :, :].repeat(1, len_nun_max, 1, 1, 1).reshape(-1, self.head, num_proposal, num_proposal)
-
-            v_features = feature1
-
-            l_features = data_dict["lang_hiddens"]
-            l_masks = data_dict["lang_masks"]
-            cluster_ref = self.multiplex_attention(v_features, l_features, l_masks, dist_weights, attention_matrix_way)
-
-            data_dict["cluster_ref"] = cluster_ref
+        data_dict["cluster_ref"] = cluster_ref
 
         return data_dict

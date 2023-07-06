@@ -36,7 +36,7 @@ class ListenerNet(nn.Module):
         #######################################
 
         # --------- LANGUAGE ENCODING ---------
-        data_dict = self.lang(data_dict, use_rl)
+        data_dict = self.lang(data_dict)
 
         #######################################
         #                                     #
@@ -45,6 +45,6 @@ class ListenerNet(nn.Module):
         #######################################
 
         # --------- PROPOSAL MATCHING ---------
-        data_dict = self.match(data_dict, use_rl)
+        data_dict = self.match(data_dict)
 
         return data_dict

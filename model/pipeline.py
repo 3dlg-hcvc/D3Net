@@ -26,6 +26,7 @@ class PipelineNet(pl.LightningModule):
         self.no_grounding = cfg.model.no_grounding
 
         self.detector = PointGroup(cfg)
+        self.val_test_step_outputs = []
 
 
         if not self.no_grounding:
@@ -129,9 +130,30 @@ class PipelineNet(pl.LightningModule):
             self.log("train_{}/{}".format(ctg, key), value, on_step=True)
         return loss
 
-    def on_validation_start(self) -> None:
-        self.final_output = {}
-        self.mem_hash = {}
+    # def on_validation_start(self) -> None:
+    #     self.final_output = {}
+    #     self.mem_hash = {}
+
+    def _parse_pred_results(self, data_dict):
+        batch_size, lang_chunk_size = data_dict["ann_id"].shape
+
+        pred_aabb_score_masks = (
+                torch.sigmoid(data_dict["cluster_ref"]) >= 0.1
+        ).reshape(shape=(batch_size, lang_chunk_size, -1))
+
+        pred_results = {}
+        for i in range(batch_size):
+            for j in range(lang_chunk_size):
+                pred_bbox_corners = data_dict["proposal_bbox_batched"]
+                min_max_bound = torch.stack((pred_bbox_corners.min(2)[0], pred_bbox_corners.max(2)[0]), dim=2)
+                pred_aabbs = min_max_bound[i][pred_aabb_score_masks[i, j]]
+                pred_results[
+                    (data_dict["scene_id"][i], data_dict["object_id"][i][j].item(),
+                     data_dict["ann_id"][i][j].item())
+                ] = {
+                    "aabb_bound": pred_aabbs.cpu().numpy()
+                }
+        return pred_results
 
 
     def validation_step(self, data_dict, idx, dataloader_idx=0):
@@ -145,73 +167,118 @@ class PipelineNet(pl.LightningModule):
 
         data_dict = self.listener(data_dict)
 
-        _, data_dict = get_grounding_loss(
-            data_dict,
-            use_oracle=self.no_detection,
-            grounding=not self.no_grounding,
-            use_lang_classifier=self.use_lang_classifier,
-            use_rl=False
-        )
+        # _, data_dict = get_grounding_loss(
+        #     data_dict,
+        #     use_oracle=self.no_detection,
+        #     grounding=not self.no_grounding,
+        #     use_lang_classifier=self.use_lang_classifier,
+        #     use_rl=False
+        # )
 
-        if SCANREFER_ENHANCE:
-            for scene_id in data_dict["scene_id"]:
-                if scene_id not in self.final_output:
-                    self.final_output[scene_id] = []
+        self.val_test_step_outputs.append((self._parse_pred_results(data_dict), self._parse_gt(data_dict)))
 
-        # scanrefer++ support
-        if SCANREFER_ENHANCE:
-            for scene_id in data_dict["scene_id"]:
-                if scene_id not in self.final_output:
-                    self.final_output[scene_id] = []
+    def _parse_gt(self, data_dict):
+        batch_size, lang_chunk_size = data_dict["ann_id"].shape
+        gts = {}
 
-        _ = get_eval(
-            data_dict,
-            grounding=True,
-            use_lang_classifier=True,
-            final_output=self.final_output,  # scanrefer++ support
-            mem_hash=self.mem_hash,
-            dont_save=True # scanrefer++ support
-        )
+        num_proposals = data_dict["cluster_ref"].shape[1]
+        box_masks = data_dict["multi_ref_box_label_list"].reshape(batch_size, num_proposals)
 
-        log_dict = {
-            "ref_acc_mean": data_dict["ref_acc_mean"],
-            "ref_iou_mean": data_dict["ref_iou_mean"],
-            "best_ious_mean": data_dict["best_ious_mean"],
-            "ref_iou_rate_0.25": data_dict["ref_iou_rate_0.25"],
-            "ref_iou_rate_0.5": data_dict["ref_iou_rate_0.5"],
-            "lang_acc": data_dict["lang_acc"],
-        }
+        gt_bboxes_list = data_dict["gt_bbox"]
+
+        gt_target_obj_id_masks = data_dict["gt_target_obj_id_mask"].permute(1, 0)
+        for i in range(batch_size):
+            # aabb_start_idx = data_dict["aabb_count_offsets"][i]
+            # aabb_end_idx = data_dict["aabb_count_offsets"][i + 1]
+            single_mask = box_masks[i]
+
+            gt_bboxes = gt_bboxes_list[i // lang_chunk_size][single_mask]
+
+            for j in range(lang_chunk_size):
+                gts[
+                    (data_dict["scene_id"][i], data_dict["object_id"][i][j].item(),
+                     data_dict["ann_id"][i][j].item())
+                ] = {
+                    "aabb_bound":
+                        (data_dict["gt_aabb_min_max_bounds"][aabb_start_idx:aabb_end_idx][gt_target_obj_id_masks[j]
+                    [aabb_start_idx:aabb_end_idx]] + data_dict["scene_center_xyz"][i]).cpu().numpy(),
+                    "eval_type": data_dict["eval_type"][i][j]
+                }
+        return gts
+
+    def on_validation_epoch_end(self):
+        total_pred_results = {}
+        total_gt_results = {}
+        for pred_results, gt_results in self.val_test_step_outputs:
+            total_pred_results.update(pred_results)
+            total_gt_results.update(gt_results)
+        self.val_test_step_outputs.clear()
+        self.evaluator.set_ground_truths(total_gt_results)
+        results = self.evaluator.evaluate(total_pred_results)
 
         # log
-        for key, value in log_dict.items():
-            ctg = "loss" if "loss" in key else "score"
-            self.log("val_{}/{}".format(ctg, key), value, on_step=True)
+        for metric_name, result in results.items():
+            for breakdown, value in result.items():
+                self.log(f"val_eval/{metric_name}_{breakdown}", value)
+        # if SCANREFER_ENHANCE:
+        #     for scene_id in data_dict["scene_id"]:
+        #         if scene_id not in self.final_output:
+        #             self.final_output[scene_id] = []
+        #
+        # # scanrefer++ support
+        # if SCANREFER_ENHANCE:
+        #     for scene_id in data_dict["scene_id"]:
+        #         if scene_id not in self.final_output:
+        #             self.final_output[scene_id] = []
+        #
+        # _ = get_eval(
+        #     data_dict,
+        #     grounding=True,
+        #     use_lang_classifier=True,
+        #     final_output=self.final_output,  # scanrefer++ support
+        #     mem_hash=self.mem_hash,
+        #     dont_save=True # scanrefer++ support
+        # )
+        #
+        # log_dict = {
+        #     "ref_acc_mean": data_dict["ref_acc_mean"],
+        #     "ref_iou_mean": data_dict["ref_iou_mean"],
+        #     "best_ious_mean": data_dict["best_ious_mean"],
+        #     "ref_iou_rate_0.25": data_dict["ref_iou_rate_0.25"],
+        #     "ref_iou_rate_0.5": data_dict["ref_iou_rate_0.5"],
+        #     "lang_acc": data_dict["lang_acc"],
+        # }
+        #
+        # # log
+        # for key, value in log_dict.items():
+        #     ctg = "loss" if "loss" in key else "score"
+        #     self.log("val_{}/{}".format(ctg, key), value, on_step=True)
 
 
-    def validation_epoch_end(self, outputs):
-
-        if SCANREFER_ENHANCE:
-            # scanrefer+= support
-            all_preds = {}
-            all_gts = {}
-            for key, value in self.final_output.items():
-                for query in value:
-                    all_preds[(key, int(query["object_id"]), int(query["ann_id"]))] = query
-                #os.makedirs(EVAL_SAVE_NAME, exist_ok=True)
-                # with open(f"{EVAL_SAVE_NAME}/{key}.json", "w") as f:
-                #     json.dump(value, f)
-                with open(os.path.join("/home/yza440/Research/D3Net/3dvg_gt", key + ".json"), 'r') as f:
-                    gt_json = json.load(f)
-                for query in gt_json:
-                    all_gts[(key, int(query["object_id"]), int(query["ann_id"]))] = query
-            iou_25_results, iou_50_results = evaluate_all_scenes(all_preds, all_gts)
-
-            self.log("val_score/multi3drefer_0.25", iou_25_results["overall"], prog_bar=False, on_step=False, on_epoch=True)
-            self.log("val_score/multi3drefer_0.5", iou_50_results["overall"], prog_bar=False, on_step=False,
-                     on_epoch=True)
-
-            self.final_output = {}
-            self.mem_hash = {}
+    # def validation_epoch_end(self, outputs):
+    #
+    #     if SCANREFER_ENHANCE:
+    #         # scanrefer+= support
+    #         all_preds = {}
+    #         all_gts = {}
+    #         for key, value in self.final_output.items():
+    #             for query in value:
+    #                 all_preds[(key, int(query["object_id"]), int(query["ann_id"]))] = query
+    #             #os.makedirs(EVAL_SAVE_NAME, exist_ok=True)
+    #             # with open(f"{EVAL_SAVE_NAME}/{key}.json", "w") as f:
+    #             #     json.dump(value, f)
+    #             with open(os.path.join("/home/yza440/Research/D3Net/3dvg_gt", key + ".json"), 'r') as f:
+    #                 gt_json = json.load(f)
+    #             for query in gt_json:
+    #                 all_gts[(key, int(query["object_id"]), int(query["ann_id"]))] = query
+    #         iou_25_results, iou_50_results = evaluate_all_scenes(all_preds, all_gts)
+    #
+    #         self.log("val_score/multi3drefer_0.25", iou_25_results["overall"], prog_bar=False, on_step=False, on_epoch=True)
+    #         self.log("val_score/multi3drefer_0.5", iou_50_results["overall"], prog_bar=False, on_step=False,
+    #                  on_epoch=True)
+    #
+    #         self.final_output = {}
+    #         self.mem_hash = {}
 
 
 
