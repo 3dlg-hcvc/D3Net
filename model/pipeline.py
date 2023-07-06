@@ -8,7 +8,7 @@ from model.listener import ListenerNet
 from lib.grounding.eval_helper import get_eval
 
 from lib.det.ap_helper import APCalculator
-
+from lib.evaluation.multi3drefer_evaluator import Multi3DReferEvaluator
 from lib.grounding.loss_helper import get_loss as get_grounding_loss
 from lib.utils.eval_helper_multi3drefer import *
 from macro import *
@@ -52,8 +52,8 @@ class PipelineNet(pl.LightningModule):
             "conf_thresh": 0.09,
             "dataset_config": self.DC
         }
-        self.ap_calculator = APCalculator(0.5, self.DC.class2type)
-
+        # self.ap_calculator = APCalculator(0.5, self.DC.class2type)
+        self.evaluator = Multi3DReferEvaluator(verbose=False, metric_name="f1")
 
         
     def init_random_seed(self):
@@ -98,12 +98,12 @@ class PipelineNet(pl.LightningModule):
                 "grounding_loss": data_dict["ref_loss"],
                 "lobjcls_loss": data_dict["lang_loss"],
 
-                "ref_acc_mean": data_dict["ref_acc_mean"],
-                "ref_iou_mean": data_dict["ref_iou_mean"],
-                "best_ious_mean": data_dict["best_ious_mean"],
-
-                "ref_iou_rate_0.25": data_dict["ref_iou_rate_0.25"],
-                "ref_iou_rate_0.5": data_dict["ref_iou_rate_0.5"],
+                # "ref_acc_mean": data_dict["ref_acc_mean"],
+                # "ref_iou_mean": data_dict["ref_iou_mean"],
+                # "best_ious_mean": data_dict["best_ious_mean"],
+                #
+                # "ref_iou_rate_0.25": data_dict["ref_iou_rate_0.25"],
+                # "ref_iou_rate_0.5": data_dict["ref_iou_rate_0.5"],
 
                 "lang_acc": data_dict["lang_acc"],
             }
@@ -114,12 +114,12 @@ class PipelineNet(pl.LightningModule):
                 "grounding_loss": data_dict["ref_loss"],
                 "lobjcls_loss": data_dict["lang_loss"],
 
-                "ref_acc_mean": data_dict["ref_acc_mean"],
-                "ref_iou_mean": data_dict["ref_iou_mean"],
-                "best_ious_mean": data_dict["best_ious_mean"],
-
-                "ref_iou_rate_0.25": data_dict["ref_iou_rate_0.25"],
-                "ref_iou_rate_0.5": data_dict["ref_iou_rate_0.5"],
+                # "ref_acc_mean": data_dict["ref_acc_mean"],
+                # "ref_iou_mean": data_dict["ref_iou_mean"],
+                # "best_ious_mean": data_dict["best_ious_mean"],
+                #
+                # "ref_iou_rate_0.25": data_dict["ref_iou_rate_0.25"],
+                # "ref_iou_rate_0.5": data_dict["ref_iou_rate_0.5"],
 
                 "lang_acc": data_dict["lang_acc"],
             }
@@ -178,30 +178,28 @@ class PipelineNet(pl.LightningModule):
         self.val_test_step_outputs.append((self._parse_pred_results(data_dict), self._parse_gt(data_dict)))
 
     def _parse_gt(self, data_dict):
-        batch_size, lang_chunk_size = data_dict["ann_id"].shape
+        batch_size, num_proposals = data_dict["cluster_ref"].shape
         gts = {}
-
-        num_proposals = data_dict["cluster_ref"].shape[1]
+        chunk_size = batch_size // data_dict["proposal_bbox_batched"].shape[0]
         box_masks = data_dict["multi_ref_box_label_list"].reshape(batch_size, num_proposals)
 
         gt_bboxes_list = data_dict["gt_bbox"]
 
-        gt_target_obj_id_masks = data_dict["gt_target_obj_id_mask"].permute(1, 0)
-        for i in range(batch_size):
+        # gt_target_obj_id_masks = data_dict["gt_target_obj_id_mask"].permute(1, 0)
+        for i in range(batch_size // chunk_size):
             # aabb_start_idx = data_dict["aabb_count_offsets"][i]
             # aabb_end_idx = data_dict["aabb_count_offsets"][i + 1]
             single_mask = box_masks[i]
 
-            gt_bboxes = gt_bboxes_list[i // lang_chunk_size][single_mask]
+            gt_bboxes = gt_bboxes_list[i // chunk_size][single_mask]
+            gt_bboxes_bound = torch.stack((gt_bboxes.min(1)[0], gt_bboxes.max(1)[0]), dim=1)
 
-            for j in range(lang_chunk_size):
+            for j in range(chunk_size):
                 gts[
                     (data_dict["scene_id"][i], data_dict["object_id"][i][j].item(),
                      data_dict["ann_id"][i][j].item())
                 ] = {
-                    "aabb_bound":
-                        (data_dict["gt_aabb_min_max_bounds"][aabb_start_idx:aabb_end_idx][gt_target_obj_id_masks[j]
-                    [aabb_start_idx:aabb_end_idx]] + data_dict["scene_center_xyz"][i]).cpu().numpy(),
+                    "aabb_bound": gt_bboxes_bound.cpu().numpy(),
                     "eval_type": data_dict["eval_type"][i][j]
                 }
         return gts

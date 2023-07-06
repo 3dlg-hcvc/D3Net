@@ -100,7 +100,7 @@ class PipelineDataset(Dataset):
                 object_cat = self.raw2label[object_name] if object_name in self.raw2label else 17
 
                 # get language features
-                lang_feat = deepcopy(self.lang[scene_id][str(object_id)][ann_id])
+                lang_feat = deepcopy(self.lang[scene_id][object_id][ann_id])
                 lang_len = len(self.chunked_data[idx][i]["token"]) + 2
                 lang_len = lang_len if lang_len <= self.max_des_len + 2 else self.max_des_len + 2
 
@@ -108,7 +108,7 @@ class PipelineDataset(Dataset):
                 if self.is_augment and random.random() < 0.5 and self.cfg.train.apply_word_erase:
                     lang_feat = self._tranform_des_with_erase(lang_feat, lang_len, p=0.2)
 
-                lang_ids = self.lang_ids[scene_id][str(object_id)][ann_id]
+                lang_ids = self.lang_ids[scene_id][object_id][ann_id]
                 # unique_multiple_flag = self.unique_multiple_lookup[scene_id][str(object_id)][ann_id]
                 unique_multiple_flag = self.chunked_data[idx][i]["eval_type"]
 
@@ -239,7 +239,7 @@ class PipelineDataset(Dataset):
         data["ann_id"] = np.array(ann_id_list).astype(np.int64)
         data["object_cat"] = np.array(object_cat_list).astype(np.int64)
         # data["unique_multiple"] = np.array(unique_multiple_list).astype(np.int64)
-        data["unique_multiple"] = unique_multiple_list
+        data["eval_type"] = unique_multiple_list
 
         # rotation
         data["scene_object_ids"] = instance_bbox_ids.astype(np.int64)  # (MAX_NUM_OBJ,) object ids of all objects

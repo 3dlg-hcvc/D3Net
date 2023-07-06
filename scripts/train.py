@@ -89,8 +89,7 @@ def init_data(cfg):
     return datasets, dataloaders
 
 def init_logger(cfg):
-    logger = pl.loggers.TensorBoardLogger(cfg.general.root, name="logs")
-
+    logger = pl.loggers.WandbLogger(project="D3Net", name="run1")
     return logger
 
 def init_monitor(cfg):
