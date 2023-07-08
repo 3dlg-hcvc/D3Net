@@ -89,7 +89,7 @@ def init_data(cfg):
     return datasets, dataloaders
 
 def init_logger(cfg):
-    logger = pl.loggers.WandbLogger(project="D3Net", name="run1")
+    logger = pl.loggers.WandbLogger(project="D3Net", name="run1", save_dir="new")
     return logger
 
 def init_monitor(cfg):
@@ -161,7 +161,6 @@ def start_training(trainer, model, dataloaders):
         checkpoint = os.path.join(cfg.general.output_root, cfg.model.use_checkpoint, "last.ckpt")
     else:
         checkpoint = None
-
 
     trainer.fit(
         model=model,
