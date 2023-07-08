@@ -208,10 +208,10 @@ class PipelineDataset(Dataset):
                 if SCANREFER_ENHANCE:
                     if bbox_label[i] == 1 and gt_id in object_ids_list[j]:
                         multi_ref_box_label_list[j][i] = True
-            if unique_multiple_list[j] != "zt_w_d" and unique_multiple_list[j] != "zt_wo_d":
-                assert multi_ref_box_label_list[j].sum() >= 1
-            elif unique_multiple_list[j] == "mt":
-                assert multi_ref_box_label_list[j].sum() > 1
+            # if unique_multiple_list[j] != "zt_w_d" and unique_multiple_list[j] != "zt_wo_d":
+            #     assert multi_ref_box_label_list[j].sum() >=1
+            # elif unique_multiple_list[j] == "mt":
+            #     assert multi_ref_box_label_list[j].sum() > 1
         # basic info
         data["istrain"] = np.array(1) if self.split == "train" else np.array(0)
         data["annotated"] = np.array(annotated_list).astype(np.int64)

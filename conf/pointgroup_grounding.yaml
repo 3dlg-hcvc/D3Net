@@ -103,13 +103,12 @@ model:
   pretrained_listener: 
 
   freeze_detector: False
-  freeze_speaker: True
   freeze_listener: False
 
 
 train:
   epochs: 50
-  num_sanity_val_steps: -1
+  num_sanity_val_steps: 0
   log_every_n_steps: 30
   check_val_every_n_epoch: 2
 

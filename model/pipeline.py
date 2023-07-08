@@ -185,8 +185,8 @@ class PipelineNet(pl.LightningModule):
 
         gt_bboxes_list = data_dict["gt_bbox"]
 
-        # gt_target_obj_id_masks = data_dict["gt_target_obj_id_mask"].permute(1, 0)
-        for i in range(batch_size // chunk_size):
+        # gt_target_obj_id_masks = data_dict["gt_target_obj_id_mask"].permute(1, 0)FF
+        for i in range(batch_size):
             # aabb_start_idx = data_dict["aabb_count_offsets"][i]
             # aabb_end_idx = data_dict["aabb_count_offsets"][i + 1]
             single_mask = box_masks[i]
@@ -195,13 +195,19 @@ class PipelineNet(pl.LightningModule):
             gt_bboxes_bound = torch.stack((gt_bboxes.min(1)[0], gt_bboxes.max(1)[0]), dim=1)
 
             for j in range(chunk_size):
-
+                # if data_dict["eval_type"][i // chunk_size][j] == "st_w_d" or data_dict["eval_type"][i // chunk_size][j] == "st_wo_d":
+                #     assert gt_bboxes_bound.shape[0] == 1
+                # elif data_dict["eval_type"][i][j] == "mt":
+                #     print(gt_bboxes_bound.shape[0])
+                #     assert gt_bboxes_bound.shape[0] > 1
+                # elif data_dict["eval_type"][i][j] == "zt_w_d" or data_dict["eval_type"][i][j] == "zt_wo_d":
+                #     assert gt_bboxes_bound.shape[0] == 0
                 gts[
-                    (data_dict["scene_id"][i], data_dict["object_id"][i][j].item(),
-                     data_dict["ann_id"][i][j].item())
+                    (data_dict["scene_id"][i // chunk_size], data_dict["object_id"][i // chunk_size][j].item(),
+                     data_dict["ann_id"][i // chunk_size][j].item())
                 ] = {
                     "aabb_bound": gt_bboxes_bound.cpu().numpy(),
-                    "eval_type": data_dict["eval_type"][i][j]
+                    "eval_type": data_dict["eval_type"][i // chunk_size][j]
                 }
         return gts
 
