@@ -178,10 +178,10 @@ class PipelineNet(pl.LightningModule):
         self.val_test_step_outputs.append((self._parse_pred_results(data_dict), self._parse_gt(data_dict)))
 
     def _parse_gt(self, data_dict):
-        batch_size, num_proposals = data_dict["cluster_ref"].shape
         gts = {}
-        chunk_size = batch_size // data_dict["proposal_bbox_batched"].shape[0]
-        box_masks = data_dict["multi_ref_box_label_list"].reshape(batch_size, num_proposals)
+        batch_size = len(data_dict["scene_id"])
+        chunk_size = data_dict["ann_id"].shape[1]
+        box_masks = data_dict["multi_ref_box_label_list"]
 
         gt_bboxes_list = data_dict["gt_bbox"]
 
@@ -189,25 +189,25 @@ class PipelineNet(pl.LightningModule):
         for i in range(batch_size):
             # aabb_start_idx = data_dict["aabb_count_offsets"][i]
             # aabb_end_idx = data_dict["aabb_count_offsets"][i + 1]
-            single_mask = box_masks[i]
 
-            gt_bboxes = gt_bboxes_list[i // chunk_size][single_mask]
-            gt_bboxes_bound = torch.stack((gt_bboxes.min(1)[0], gt_bboxes.max(1)[0]), dim=1)
 
             for j in range(chunk_size):
-                # if data_dict["eval_type"][i // chunk_size][j] == "st_w_d" or data_dict["eval_type"][i // chunk_size][j] == "st_wo_d":
-                #     assert gt_bboxes_bound.shape[0] == 1
-                # elif data_dict["eval_type"][i][j] == "mt":
-                #     print(gt_bboxes_bound.shape[0])
-                #     assert gt_bboxes_bound.shape[0] > 1
-                # elif data_dict["eval_type"][i][j] == "zt_w_d" or data_dict["eval_type"][i][j] == "zt_wo_d":
-                #     assert gt_bboxes_bound.shape[0] == 0
+                single_mask = box_masks[i, j]
+
+                gt_bboxes = gt_bboxes_list[i][single_mask]
+                gt_bboxes_bound = torch.stack((gt_bboxes.min(1)[0], gt_bboxes.max(1)[0]), dim=1)
+                if data_dict["eval_type"][i][j] == "st_w_d" or data_dict["eval_type"][i][j] == "st_wo_d":
+                    assert gt_bboxes_bound.shape[0] == 1
+                elif data_dict["eval_type"][i][j] == "mt":
+                    assert gt_bboxes_bound.shape[0] > 1
+                elif data_dict["eval_type"][i][j] == "zt_w_d" or data_dict["eval_type"][i][j] == "zt_wo_d":
+                    assert gt_bboxes_bound.shape[0] == 0
                 gts[
-                    (data_dict["scene_id"][i // chunk_size], data_dict["object_id"][i // chunk_size][j].item(),
-                     data_dict["ann_id"][i // chunk_size][j].item())
+                    (data_dict["scene_id"][i], data_dict["object_id"][i][j].item(),
+                     data_dict["ann_id"][i][j].item())
                 ] = {
                     "aabb_bound": gt_bboxes_bound.cpu().numpy(),
-                    "eval_type": data_dict["eval_type"][i // chunk_size][j]
+                    "eval_type": data_dict["eval_type"][i][j]
                 }
         return gts
 
