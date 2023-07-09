@@ -88,9 +88,6 @@ def init_data(cfg):
 
     return datasets, dataloaders
 
-def init_logger(cfg):
-    logger = pl.loggers.WandbLogger(project="D3Net", name="run1", save_dir="new")
-    return logger
 
 def init_monitor(cfg):
     monitor = pl.callbacks.ModelCheckpoint(
@@ -105,6 +102,7 @@ def init_monitor(cfg):
     return monitor
 
 def init_trainer(cfg):
+    logger = pl.loggers.WandbLogger(project="D3Net", name="run1", save_dir="new")
     trainer = pl.Trainer(
         # gpus=-1, # use all available GPUs
         # strategy="ddp_find_unused_parameters_false",
@@ -185,8 +183,6 @@ if __name__ == "__main__":
     print("=> initializing model...")
     model = init_model(cfg)
 
-    print("=> initializing logger...")
-    logger = init_logger(cfg)
     
     print("=> initializing monitor...")
     monitor = init_monitor(cfg)
