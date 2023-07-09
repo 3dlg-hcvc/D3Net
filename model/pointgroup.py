@@ -329,7 +329,12 @@ class PointGroup(pl.LightningModule):
             pt_score_feats = score_feats.features[proposals_p2v_map.long()] # (sumNPoint, C)
             proposals_score_feats = pointgroup_ops.roipool(pt_score_feats, proposals_offset.cuda())  # (nProposal, C)
             # proposals_score_feats = self.proposal_mlp(proposals_score_feats) # (nProposal, 128)
-            scores = self.score_linear(proposals_score_feats)  # (nProposal, 1)
+
+            if not USE_GT:
+                scores = self.score_linear(proposals_score_feats)  # (nProposal, 1)
+            else:
+                scores = torch.ones((proposals_score_feats.shape[0], 1), device=self.device, dtype=torch.float32)
+
             data_dict["proposal_scores"] = (scores, proposals_idx, proposals_offset)
 
             ############ extract batch related features and bbox #############
@@ -348,20 +353,16 @@ class PointGroup(pl.LightningModule):
             data_dict["proposal_feats"] = proposals_score_feats[thres_mask]
             data_dict["proposal_objectness_scores"] = torch.sigmoid(scores.view(-1))[thres_mask]
             
-            if self.cfg.model.crop_bbox:
-                proposal_crop_bbox = torch.zeros(num_proposals, 9, device="cuda") # (nProposals, center+size+heading+label)
-                proposal_crop_bbox[:, :3] = proposals_center
-                proposal_crop_bbox[:, 3:6] = proposals_size
-                proposal_crop_bbox[:, 7] = semantic_preds[proposals_idx[proposals_offset[:-1].long(), 1].long()]
-                proposal_crop_bbox[:, 8] = torch.sigmoid(scores.view(-1))
-                proposal_crop_bbox = proposal_crop_bbox[thres_mask]
-                data_dict["proposal_crop_bbox"] = proposal_crop_bbox
 
-            # if self.cfg.model.pred_bbox:
-            #     encoded_pred_bbox = self.bbox_regressor(proposals_score_feats) # (nProposal, 3+num_heading_bin*2+num_size_cluster*4+num_class)
-            #     encoded_pred_bbox = encoded_pred_bbox[thres_mask]
-            #     data_dict["proposal_info"] = (proposals_center[thres_mask], proposals_size[thres_mask])
-            #     data_dict = self.decode_bbox_prediction(encoded_pred_bbox)
+            proposal_crop_bbox = torch.zeros(num_proposals, 9, device="cuda") # (nProposals, center+size+heading+label)
+            proposal_crop_bbox[:, :3] = proposals_center
+            proposal_crop_bbox[:, 3:6] = proposals_size
+            proposal_crop_bbox[:, 7] = semantic_preds[proposals_idx[proposals_offset[:-1].long(), 1].long()]
+            proposal_crop_bbox[:, 8] = torch.sigmoid(scores.view(-1))
+            proposal_crop_bbox = proposal_crop_bbox[thres_mask]
+            data_dict["proposal_crop_bbox"] = proposal_crop_bbox
+
+
             
         return data_dict
     
@@ -451,9 +452,13 @@ class PointGroup(pl.LightningModule):
             data_dict["score_loss"] = (score_loss, gt_ious.shape[0])
 
         """total loss"""
-        loss = self.cfg.train.loss_weight[0] * semantic_loss + self.cfg.train.loss_weight[1] * offset_norm_loss + self.cfg.train.loss_weight[2] * offset_dir_loss
-        if(epoch > self.cfg.cluster.prepare_epochs):
-            loss += (self.cfg.train.loss_weight[3] * score_loss)
+        if not USE_GT:
+            loss = self.cfg.train.loss_weight[0] * semantic_loss + self.cfg.train.loss_weight[1] * offset_norm_loss + self.cfg.train.loss_weight[2] * offset_dir_loss + self.cfg.train.loss_weight[3] * score_loss
+        else:
+            loss = self.cfg.train.loss_weight[0] * semantic_loss
+
+        # if(epoch > self.cfg.cluster.prepare_epochs):
+        #     loss += (self.cfg.train.loss_weight[3] * score_loss)
         data_dict["total_loss"] = (loss, semantic_labels.shape[0])
 
         return data_dict

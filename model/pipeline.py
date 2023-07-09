@@ -71,9 +71,9 @@ class PipelineNet(pl.LightningModule):
         # forward pass
         data_dict = self.detector.feed(data_dict, self.current_epoch)
 
-        if not USE_GT:
-            _, data_dict = self.detector.parse_feed_ret(data_dict)
-            data_dict = self.detector.loss(data_dict, self.current_epoch)
+
+        _, data_dict = self.detector.parse_feed_ret(data_dict)
+        data_dict = self.detector.loss(data_dict, self.current_epoch)
         data_dict = self.listener(data_dict)
 
         _, data_dict = get_grounding_loss(
@@ -84,16 +84,13 @@ class PipelineNet(pl.LightningModule):
             use_rl=False
         )
 
-        if not USE_GT:
-            loss = data_dict["total_loss"][0] + data_dict["ref_loss"] + data_dict["lang_loss"]
-        else:
-            loss = data_dict["ref_loss"] + data_dict["lang_loss"]
+
+        loss = data_dict["total_loss"][0] + data_dict["ref_loss"] + data_dict["lang_loss"]
 
         # unpack
         if not USE_GT:
             log_dict = {
                 "loss": loss,
-
                 "detect_loss": data_dict["total_loss"][0],
                 "grounding_loss": data_dict["ref_loss"],
                 "lobjcls_loss": data_dict["lang_loss"],
@@ -105,23 +102,18 @@ class PipelineNet(pl.LightningModule):
                 # "ref_iou_rate_0.25": data_dict["ref_iou_rate_0.25"],
                 # "ref_iou_rate_0.5": data_dict["ref_iou_rate_0.5"],
 
-                "lang_acc": data_dict["lang_acc"],
             }
         else:
             log_dict = {
                 "loss": loss,
-
                 "grounding_loss": data_dict["ref_loss"],
                 "lobjcls_loss": data_dict["lang_loss"],
-
                 # "ref_acc_mean": data_dict["ref_acc_mean"],
                 # "ref_iou_mean": data_dict["ref_iou_mean"],
                 # "best_ious_mean": data_dict["best_ious_mean"],
                 #
                 # "ref_iou_rate_0.25": data_dict["ref_iou_rate_0.25"],
                 # "ref_iou_rate_0.5": data_dict["ref_iou_rate_0.5"],
-
-                "lang_acc": data_dict["lang_acc"],
             }
 
         # log

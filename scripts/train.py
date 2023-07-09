@@ -7,6 +7,7 @@ import torch
 import argparse
 
 import pytorch_lightning as pl
+from pytorch_lightning.loggers import WandbLogger
 
 from copy import deepcopy
 from omegaconf import OmegaConf
@@ -102,7 +103,7 @@ def init_monitor(cfg):
     return monitor
 
 def init_trainer(cfg):
-    logger = pl.loggers.WandbLogger(project="D3Net", name="run1")
+    logger = WandbLogger(project="D3Net", name="run1")
     trainer = pl.Trainer(
         # gpus=-1, # use all available GPUs
         # strategy="ddp_find_unused_parameters_false",
