@@ -7,7 +7,7 @@ general:
   config: conf/pointgroup_scannet.yaml
   output_root: outputs/
   experiment: pointgroup_grounding # TODO
-  monitor: val_score/multi3drefer_0.5
+  monitor: val_eval/f1@0.5_overall
   monitor_mode: max
 
 
