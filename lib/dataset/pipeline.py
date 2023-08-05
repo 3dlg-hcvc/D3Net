@@ -416,7 +416,11 @@ class PipelineDataset(Dataset):
 
         for data in self.raw_data:
             scene_id = data["scene_id"]
-            object_id = data["object_id"]
+            if "object_ids" not in data:
+                object_id = data["object_id"]  # for scanrefer
+            else:
+                object_id = 0
+
 
             if scene_id not in organized: organized[scene_id] = {}
             if object_id not in organized[scene_id]: organized[scene_id][object_id] = []
