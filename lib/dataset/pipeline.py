@@ -90,9 +90,12 @@ class PipelineDataset(Dataset):
         for i in range(self.chunk_size):
             if i < actual_chunk_size:
                 chunk_id = i
-                object_id = self.chunked_data[idx][i]["object_id"]
+
                 if SCANREFER_ENHANCE:
                     object_ids = self.chunked_data[idx][i]["object_ids"]
+                    object_id = 0
+                else:
+                    object_id = self.chunked_data[idx][i]["object_id"]
                 annotated = 1
                 object_id = int(object_id)
                 object_name = " ".join(self.chunked_data[idx][i]["object_name"].split("_"))
