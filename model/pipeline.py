@@ -53,7 +53,7 @@ class PipelineNet(pl.LightningModule):
             "dataset_config": self.DC
         }
         # self.ap_calculator = APCalculator(0.5, self.DC.class2type)
-        self.evaluator = Multi3DReferEvaluator(verbose=False, metric_name="f1")
+        self.evaluator = Multi3DReferEvaluator(verbose=True, metric_name="f1")
 
         
     def init_random_seed(self):
@@ -168,6 +168,42 @@ class PipelineNet(pl.LightningModule):
         # )
 
         self.val_test_step_outputs.append((self._parse_pred_results(data_dict), self._parse_gt(data_dict)))
+
+    def test_step(self, data_dict, idx, dataloader_idx=0):
+        if self.global_step % self.cfg.model.clear_cache_steps == 0:
+            torch.cuda.empty_cache()
+
+        data_dict = self.detector.feed(data_dict, self.current_epoch)
+        if not USE_GT:
+            _, data_dict = self.detector.parse_feed_ret(data_dict)
+            data_dict = self.detector.loss(data_dict, self.current_epoch)
+
+        data_dict = self.listener(data_dict)
+
+        # _, data_dict = get_grounding_loss(
+        #     data_dict,
+        #     use_oracle=self.no_detection,
+        #     grounding=not self.no_grounding,
+        #     use_lang_classifier=self.use_lang_classifier,
+        #     use_rl=False
+        # )
+
+        self.val_test_step_outputs.append((self._parse_pred_results(data_dict), self._parse_gt(data_dict)))
+
+    def on_test_epoch_end(self):
+        total_pred_results = {}
+        total_gt_results = {}
+        for pred_results, gt_results in self.val_test_step_outputs:
+            total_pred_results.update(pred_results)
+            total_gt_results.update(gt_results)
+        self.val_test_step_outputs.clear()
+        self.evaluator.set_ground_truths(total_gt_results)
+        results = self.evaluator.evaluate(total_pred_results)
+
+        # log
+        # for metric_name, result in results.items():
+        #     for breakdown, value in result.items():
+        #         self.log(f"val_eval/{metric_name}_{breakdown}", value)
 
     def _parse_gt(self, data_dict):
         gts = {}
