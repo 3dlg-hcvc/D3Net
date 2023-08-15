@@ -25,7 +25,7 @@ def load_conf(args):
     root = os.path.join(cfg.general.output_root, cfg.general.experiment.upper())
     os.makedirs(root, exist_ok=True)
 
-    cfg.general.task = "train"
+    cfg.general.task = "val"
     cfg.general.root = root
 
     cfg_backup_path = os.path.join(cfg.general.root, "config.yaml")
@@ -40,21 +40,13 @@ def init_listener_data(cfg):
     collate_fn = getattr(DATA_MODULE, "sparse_collate_fn")
 
     # SCAN2CAD = json.load(open(os.path.join(cfg.SCAN2CAD, "scannet_instance_rotations.json")))
-    raw_train = json.load(open(cfg["{}_PATH".format(cfg.general.dataset.upper())].train_split))
     raw_val = json.load(open(cfg["{}_PATH".format(cfg.general.dataset.upper())].val_split))
 
-    raw_train_scan_list = sorted(list(set([data["scene_id"] for data in raw_train])))
     raw_val_scan_list = sorted(list(set([data["scene_id"] for data in raw_val])))
 
-    data_train = deepcopy(raw_train)
     data_val = deepcopy(raw_val)
-    scan_list_train = deepcopy(raw_train_scan_list)
     scan_list_val = deepcopy(raw_val_scan_list)
 
-    print("=> loading train split for listener...")
-    dataset_train = Dataset(cfg, cfg.general.dataset, "listener", "train", data_train, scan_list_train)
-
-    print("=> use {} samples for training".format(len(dataset_train)))
 
     print("=> loading val split for listener...")
     dataset_val = Dataset(cfg, cfg.general.dataset, "listener", "val", data_val, scan_list_val)
@@ -64,13 +56,10 @@ def init_listener_data(cfg):
     print("=> loading complete")
 
     datasets = {
-        "train": dataset_train,
         "val": dataset_val
     }
 
     dataloaders = {
-        "train": DataLoader(dataset_train, batch_size=cfg.data.batch_size, \
-                            shuffle=True, pin_memory=True, num_workers=cfg.data.num_workers, collate_fn=collate_fn),
         "val": DataLoader(dataset_val, batch_size=cfg.data.batch_size, \
                           shuffle=False, pin_memory=True, num_workers=cfg.data.num_workers, collate_fn=collate_fn),
     }
