@@ -130,7 +130,7 @@ class PipelineNet(pl.LightningModule):
         batch_size, lang_chunk_size = data_dict["ann_id"].shape
 
         pred_aabb_score_masks = (
-                torch.sigmoid(data_dict["cluster_ref"]) >= 0.1
+                torch.sigmoid(data_dict["cluster_ref"]) >= SCANREFER_ENHANCE_EVAL_THRESHOLD
         ).reshape(shape=(batch_size, lang_chunk_size, -1))
 
         pred_results = {}
