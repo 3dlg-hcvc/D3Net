@@ -121,12 +121,12 @@ def init_model(cfg):
 
     return model
 
-def start_evaluation(trainer, model, dataloaders, cfg):
+def start_evaluation(trainer, model, dataloaders, checkpoint):
 
     trainer.test(
         model=model,
         val_dataloaders=dataloaders["lis"]["val"],
-        ckpt_path=cfg.checkpoint
+        ckpt_path=checkpoint
     )
 
 
@@ -150,4 +150,4 @@ if __name__ == "__main__":
     trainer = init_trainer(cfg)
 
     print("=> start training...")
-    start_evaluation(trainer, model, dataloaders, cfg)
+    start_evaluation(trainer, model, dataloaders, args.checkpoint)
