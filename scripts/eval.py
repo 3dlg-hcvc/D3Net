@@ -125,7 +125,7 @@ def start_evaluation(trainer, model, dataloaders, checkpoint):
 
     trainer.test(
         model=model,
-        val_dataloaders=dataloaders["lis"]["val"],
+        test_dataloader=dataloaders["lis"]["val"],
         ckpt_path=checkpoint
     )
 
